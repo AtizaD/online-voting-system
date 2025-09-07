@@ -1,0 +1,17 @@
+{
+    "name": "christalone/online_voting",
+    "autoload": {
+        "psr-4": {
+            "Christalone\\OnlineVoting\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "AtizaD",
+            "email": "veratechgh1@gmail.com"
+        }
+    ],
+    "require": {
+        "tecnickcom/tcpdf": "^6.10"
+    }
+}

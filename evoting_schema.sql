@@ -1,8 +1,8 @@
 -- SHS E-Voting System Database Schema
--- CORRECTED VERSION - All errors fixed, no triggers
+-- REORDERED VERSION - Tables created in dependency order to avoid FK errors
 
 -- ==========================================
--- CORE REFERENCE TABLES
+-- CORE REFERENCE TABLES (No dependencies)
 -- ==========================================
 
 CREATE TABLE levels (
@@ -21,6 +21,28 @@ CREATE TABLE programs (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE election_types (
+    election_type_id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL UNIQUE, -- 'Student Council', 'Class Representative', 'Prefect', etc.
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_roles (
+    role_id INT PRIMARY KEY AUTO_INCREMENT,
+    role_name VARCHAR(50) NOT NULL UNIQUE, -- 'admin', 'election_officer', 'teacher'
+    description TEXT,
+    permissions JSON, -- Store permissions as JSON array
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ==========================================
+-- CLASSES (Depends on programs and levels)
+-- ==========================================
+
 CREATE TABLE classes (
     class_id INT PRIMARY KEY AUTO_INCREMENT,
     program_id INT NOT NULL,
@@ -36,30 +58,8 @@ CREATE TABLE classes (
 );
 
 -- ==========================================
--- ELECTION TYPES
+-- USER MANAGEMENT (Depends on user_roles)
 -- ==========================================
-
-CREATE TABLE election_types (
-    election_type_id INT PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(100) NOT NULL UNIQUE, -- 'Student Council', 'Class Representative', 'Prefect', etc.
-    description TEXT,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- ==========================================
--- USER MANAGEMENT & AUTHENTICATION
--- ==========================================
-
-CREATE TABLE user_roles (
-    role_id INT PRIMARY KEY AUTO_INCREMENT,
-    role_name VARCHAR(50) NOT NULL UNIQUE, -- 'admin', 'election_officer', 'teacher'
-    description TEXT,
-    permissions JSON, -- Store permissions as JSON array
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
 
 CREATE TABLE users (
     user_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -93,12 +93,9 @@ CREATE TABLE user_sessions (
     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
+
 -- ==========================================
--- STUDENT MANAGEMENT
--- NOTE: All students must belong to a program and class
--- Classes are linked to both programs and levels
--- Structure: levels → programs → classes → students
--- All verified students are automatically eligible to vote
+-- STUDENT MANAGEMENT (Depends on programs, classes, users)
 -- ==========================================
 
 CREATE TABLE students (
@@ -125,8 +122,7 @@ CREATE TABLE students (
 );
 
 -- ==========================================
--- ELECTION MANAGEMENT
--- NOTE: Simplified system - no eligibility restrictions, no candidate approval
+-- ELECTION MANAGEMENT (Depends on election_types, users)
 -- ==========================================
 
 CREATE TABLE elections (
@@ -182,8 +178,7 @@ CREATE TABLE candidates (
 );
 
 -- ==========================================
--- VOTING SYSTEM
--- NOTE: All verified students are eligible to vote - no separate eligibility checks
+-- VOTING SYSTEM (Depends on students, elections, positions, candidates)
 -- ==========================================
 
 CREATE TABLE voting_sessions (
@@ -233,7 +228,7 @@ CREATE TABLE abstain_votes (
 );
 
 -- ==========================================
--- RESULTS & ANALYTICS
+-- RESULTS & ANALYTICS (Depends on elections, positions, candidates)
 -- ==========================================
 
 CREATE TABLE election_results (
@@ -273,7 +268,7 @@ CREATE TABLE voting_statistics (
 );
 
 -- ==========================================
--- SECURITY & AUDIT
+-- SECURITY & AUDIT (Depends on users, students)
 -- ==========================================
 
 CREATE TABLE audit_logs (
@@ -331,7 +326,7 @@ CREATE TABLE system_settings (
 );
 
 -- ==========================================
--- FILE MANAGEMENT
+-- FILE MANAGEMENT (Depends on users)
 -- ==========================================
 
 CREATE TABLE uploaded_files (
@@ -427,5 +422,5 @@ INSERT INTO programs (program_name) VALUES
 
 -- Insert default admin user (CHANGE PASSWORD IN PRODUCTION!)
 INSERT INTO users (username, email, password_hash, role_id, first_name, last_name, is_verified) VALUES 
-('admin', 'admin@school.edu.gh', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewpUmz3LRJYwZfgm', 1, 'System', 'Administrator', TRUE);
+('admin', 'admin@school.edu.gh', '$2a$12$f8jLulJMSxnrKqOcJF4kgugTgempRDh63YrTddCTbc0MjWXFNAWoW', 1, 'System', 'Administrator', TRUE);
 -- Default password is 'admin123' - MUST BE CHANGED after first login!

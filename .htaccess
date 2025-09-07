@@ -1,0 +1,42 @@
+# Enable URL Rewriting
+RewriteEngine On
+
+# Protect sensitive files
+<Files "*.sql">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "*.log">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "*.md">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# Protect config directory
+RewriteRule ^config/ - [F,L]
+
+# Protect logs directory  
+RewriteRule ^logs/ - [F,L]
+
+# Protect includes directory from direct access
+RewriteRule ^includes/ - [F,L]
+
+# Block PHP execution in uploads
+RewriteRule ^assets/uploads/.*\.php$ - [F,L]
+
+# Redirect .php to clean URLs (exclude API endpoints and auth handlers)
+RewriteCond %{THE_REQUEST} \s/+(.+?)\.php[\s?] [NC]
+RewriteCond %{REQUEST_URI} !^/online_voting/api/ [NC]
+RewriteCond %{REQUEST_URI} !^/online_voting/auth/handler [NC]
+RewriteCond %{REQUEST_URI} !^/online_voting/auth/logout [NC]
+RewriteRule ^ /%1? [R=301,L]
+
+# Remove .php extension from URLs
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^([^\.]+)$ $1.php [NC,L]
