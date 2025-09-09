@@ -20,7 +20,7 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
     <!-- Font Awesome -->
     <link href="<?= SITE_URL ?>/assets/css/font-awesome.min.css" rel="stylesheet">
     <!-- Custom CSS -->
-    <link href="<?= SITE_URL ?>assets/css/main.css" rel="stylesheet">
+    <link href="<?= SITE_URL ?>/assets/css/main.css" rel="stylesheet">
     
     <style>
         :root {
@@ -262,6 +262,13 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
             cursor: pointer;
         }
 
+        /* Hide sidebar toggle on mobile */
+        @media (max-width: 768px) {
+            .sidebar-toggle {
+                display: none !important;
+            }
+        }
+
         /* Page header */
         .page-header {
             background: white;
@@ -387,37 +394,37 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
         <!-- Election Officer Menu -->
         <div class="menu-section">
             <div class="menu-title">Main</div>
-            <a href="<?= SITE_URL ?>election-officer/" class="menu-item <?= ($current_dir === 'election-officer' && $current_page === 'index.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/election-officer/" class="menu-item <?= ($current_dir === 'election-officer' && $current_page === 'index.php') ? 'active' : '' ?>">
                 <i class="fas fa-tachometer-alt"></i> <span>Dashboard</span>
             </a>
-            <a href="<?= SITE_URL ?>election-officer/profile.php" class="menu-item <?= ($current_page === 'profile.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/election-officer/profile.php" class="menu-item <?= ($current_page === 'profile.php') ? 'active' : '' ?>">
                 <i class="fas fa-user-cog"></i> <span>Profile</span>
             </a>
         </div>
 
         <div class="menu-section">
             <div class="menu-title">Elections</div>
-            <a href="<?= SITE_URL ?>election-officer/elections/" class="menu-item <?= ($current_dir === 'elections') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/election-officer/elections/" class="menu-item <?= ($current_dir === 'elections') ? 'active' : '' ?>">
                 <i class="fas fa-poll"></i> <span>Elections</span>
             </a>
-            <a href="<?= SITE_URL ?>election-officer/candidates/" class="menu-item <?= ($current_dir === 'candidates') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/election-officer/candidates/" class="menu-item <?= ($current_dir === 'candidates') ? 'active' : '' ?>">
                 <i class="fas fa-users"></i> <span>Candidates</span>
             </a>
         </div>
 
         <div class="menu-section">
             <div class="menu-title">Voting</div>
-            <a href="<?= SITE_URL ?>election-officer/voting/monitor.php" class="menu-item <?= ($current_dir === 'voting') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/election-officer/voting/monitor.php" class="menu-item <?= ($current_dir === 'voting') ? 'active' : '' ?>">
                 <i class="fas fa-eye"></i> <span>Monitor Voting</span>
             </a>
-            <a href="<?= SITE_URL ?>election-officer/results/" class="menu-item <?= ($current_dir === 'results') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/election-officer/results/" class="menu-item <?= ($current_dir === 'results') ? 'active' : '' ?>">
                 <i class="fas fa-chart-bar"></i> <span>Results</span>
             </a>
         </div>
 
         <div class="menu-section">
             <div class="menu-title">Students</div>
-            <a href="<?= SITE_URL ?>election-officer/students/verify.php" class="menu-item <?= ($current_dir === 'students') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/election-officer/students/verify.php" class="menu-item <?= ($current_dir === 'students') ? 'active' : '' ?>">
                 <i class="fas fa-user-check"></i> <span>Verify Students</span>
             </a>
         </div>
@@ -426,43 +433,43 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
         <!-- Staff Menu -->
         <div class="menu-section">
             <div class="menu-title">Main</div>
-            <a href="<?= SITE_URL ?>staff/" class="menu-item <?= ($current_page === 'index.php' && $current_dir === 'staff') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/staff/" class="menu-item <?= ($current_page === 'index.php' && $current_dir === 'staff') ? 'active' : '' ?>">
                 <i class="fas fa-tachometer-alt"></i> <span>Dashboard</span>
             </a>
         </div>
         
         <div class="menu-section">
             <div class="menu-title">Students</div>
-            <a href="<?= SITE_URL ?>staff/students/" class="menu-item <?= ($current_dir === 'students' && $current_page === 'index.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/staff/students/" class="menu-item <?= ($current_dir === 'students' && $current_page === 'index.php') ? 'active' : '' ?>">
                 <i class="fas fa-users"></i> <span>Student Overview</span>
             </a>
-            <a href="<?= SITE_URL ?>staff/students/manage.php" class="menu-item <?= ($current_dir === 'students' && $current_page === 'manage.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/staff/students/manage.php" class="menu-item <?= ($current_dir === 'students' && $current_page === 'manage.php') ? 'active' : '' ?>">
                 <i class="fas fa-user-graduate"></i> <span>Manage Students</span>
             </a>
-            <a href="<?= SITE_URL ?>staff/students/verify.php" class="menu-item <?= ($current_dir === 'students' && $current_page === 'verify.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/staff/students/verify.php" class="menu-item <?= ($current_dir === 'students' && $current_page === 'verify.php') ? 'active' : '' ?>">
                 <i class="fas fa-user-check"></i> <span>Verify Students</span>
             </a>
         </div>
         
         <div class="menu-section">
             <div class="menu-title">Reports</div>
-            <a href="<?= SITE_URL ?>staff/reports/" class="menu-item <?= ($current_dir === 'reports' && $current_page === 'index.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/staff/reports/" class="menu-item <?= ($current_dir === 'reports' && $current_page === 'index.php') ? 'active' : '' ?>">
                 <i class="fas fa-chart-bar"></i> <span>Reports Dashboard</span>
             </a>
-            <a href="<?= SITE_URL ?>staff/reports/students.php" class="menu-item <?= ($current_dir === 'reports' && $current_page === 'students.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/staff/reports/students.php" class="menu-item <?= ($current_dir === 'reports' && $current_page === 'students.php') ? 'active' : '' ?>">
                 <i class="fas fa-user-graduate"></i> <span>Student Reports</span>
             </a>
-            <a href="<?= SITE_URL ?>staff/reports/verification.php" class="menu-item <?= ($current_dir === 'reports' && $current_page === 'verification.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/staff/reports/verification.php" class="menu-item <?= ($current_dir === 'reports' && $current_page === 'verification.php') ? 'active' : '' ?>">
                 <i class="fas fa-clipboard-check"></i> <span>Verification Reports</span>
             </a>
         </div>
         
         <div class="menu-section">
             <div class="menu-title">Voting Support</div>
-            <a href="<?= SITE_URL ?>staff/voting/assist.php" class="menu-item <?= ($current_dir === 'voting' && $current_page === 'assist.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/staff/voting/assist.php" class="menu-item <?= ($current_dir === 'voting' && $current_page === 'assist.php') ? 'active' : '' ?>">
                 <i class="fas fa-hands-helping"></i> <span>Assist Students</span>
             </a>
-            <a href="<?= SITE_URL ?>staff/voting/issues.php" class="menu-item <?= ($current_dir === 'voting' && $current_page === 'issues.php') ? 'active' : '' ?>">
+            <a href="<?= SITE_URL ?>/staff/voting/issues.php" class="menu-item <?= ($current_dir === 'voting' && $current_page === 'issues.php') ? 'active' : '' ?>">
                 <i class="fas fa-exclamation-triangle"></i> <span>Report Issues</span>
             </a>
         </div>
@@ -471,13 +478,13 @@ $current_dir = basename(dirname($_SERVER['PHP_SELF']));
         <!-- Student Menu -->
         <div class="menu-section">
             <div class="menu-title">Voting</div>
-            <a href="<?= SITE_URL ?>student/" class="menu-item">
+            <a href="<?= SITE_URL ?>/student/" class="menu-item">
                 <i class="fas fa-tachometer-alt"></i> Dashboard
             </a>
-            <a href="<?= SITE_URL ?>student/vote.php" class="menu-item">
+            <a href="<?= SITE_URL ?>/student/vote.php" class="menu-item">
                 <i class="fas fa-vote-yea"></i> Vote
             </a>
-            <a href="<?= SITE_URL ?>student/results.php" class="menu-item">
+            <a href="<?= SITE_URL ?>/student/results.php" class="menu-item">
                 <i class="fas fa-chart-bar"></i> Results
             </a>
         </div>

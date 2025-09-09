@@ -125,143 +125,676 @@ include __DIR__ . '/../../includes/header.php';
 ?>
 
 <style>
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 30px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes gradientFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes bounceIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+    70% {
+        transform: scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+    margin: -20px -20px 2rem -20px;
+    border-radius: 0 0 15px 15px;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="candidates-pattern" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1.5" fill="%23ffffff" opacity="0.3"/><circle cx="5" cy="15" r="1" fill="%23ffffff" opacity="0.2"/><circle cx="15" cy="5" r="1" fill="%23ffffff" opacity="0.1"/></pattern></defs><rect width="100" height="100" fill="url(%23candidates-pattern)"/></svg>');
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    position: relative;
+    z-index: 1;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.page-subtitle {
+    font-size: 1rem;
+    opacity: 0.9;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
     margin-bottom: 2rem;
 }
 
 .stat-card {
     background: white;
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 15px;
+    padding: 1.75rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     text-align: center;
-    border-left: 4px solid var(--primary-color);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fadeInUp 0.6s ease-out;
+    border: 1px solid rgba(255,255,255,0.8);
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+    background-size: 300% 300%;
+    animation: gradientFlow 3s ease infinite;
+}
+
+.stat-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(102, 126, 234, 0.15);
+}
+
+.stat-card:nth-child(1) { animation-delay: 0.1s; }
+.stat-card:nth-child(2) { animation-delay: 0.2s; }
+.stat-card:nth-child(3) { animation-delay: 0.3s; }
+.stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    margin: 0 auto 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.stat-card:hover .stat-icon {
+    animation: pulse 0.6s ease-in-out;
 }
 
 .stat-number {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #1e293b;
+    font-size: 2.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin: 0;
+    line-height: 1;
 }
 
 .stat-label {
     color: #64748b;
     font-size: 0.875rem;
+    font-weight: 500;
     margin: 0.5rem 0 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.candidates-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 1.5rem;
-}
-
-.candidate-card {
+.candidates-table-container {
     background: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 15px;
     overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    border: 1px solid rgba(255,255,255,0.8);
+    animation: fadeInUp 0.6s ease-out 0.4s both;
 }
 
-.candidate-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+.candidates-table {
+    width: 100%;
+    margin: 0;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
-.candidate-header {
-    position: relative;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+.candidates-table thead {
+    background: linear-gradient(135deg, #667eea, #764ba2);
     color: white;
-    padding: 1.5rem;
 }
 
-.candidate-photo {
-    width: 80px;
-    height: 80px;
+.candidates-table thead th {
+    padding: 1.25rem 1rem;
+    font-weight: 600;
+    text-align: left;
+    border: none;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+}
+
+.candidates-table thead th:first-child {
+    border-top-left-radius: 15px;
+}
+
+.candidates-table thead th:last-child {
+    border-top-right-radius: 15px;
+}
+
+.candidates-table tbody tr {
+    transition: all 0.3s ease;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.candidates-table tbody tr:hover {
+    background: linear-gradient(135deg, #f8fafc, #ffffff);
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.candidates-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.candidates-table tbody td {
+    padding: 1rem;
+    vertical-align: middle;
+    border: none;
+    position: relative;
+}
+
+.candidate-avatar {
+    width: 45px;
+    height: 45px;
     border-radius: 50%;
-    background: rgba(255,255,255,0.2);
+    background: linear-gradient(135deg, #667eea, #764ba2);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
-    font-weight: 600;
-    margin: 0 auto 1rem;
-    border: 3px solid rgba(255,255,255,0.3);
+    color: white;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-right: 1rem;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    transition: all 0.3s ease;
 }
 
-.candidate-name {
-    font-size: 1.25rem;
-    font-weight: 600;
+.candidates-table tbody tr:hover .candidate-avatar {
+    transform: scale(1.1);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.candidate-info-cell {
+    display: flex;
+    align-items: center;
+}
+
+.candidate-details h6 {
     margin: 0;
-    text-align: center;
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 1rem;
 }
 
-.candidate-position {
-    text-align: center;
-    opacity: 0.9;
-    margin: 0.5rem 0 0;
-}
-
-.status-badge {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-.status-pending { background: rgba(251, 191, 36, 0.2); color: #f59e0b; border: 1px solid rgba(251, 191, 36, 0.3); }
-.status-approved { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
-.status-rejected { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-
-.candidate-body {
-    padding: 1.5rem;
-}
-
-.candidate-info {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
-    margin-bottom: 1rem;
+.candidate-details small {
+    color: #64748b;
     font-size: 0.875rem;
 }
 
-.candidate-info-item {
+.status-badge {
+    padding: 0.35rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.status-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.6s;
+}
+
+.status-badge:hover::before {
+    left: 100%;
+}
+
+.status-pending { 
+    background: linear-gradient(135deg, #fbbf24, #f59e0b); 
+    color: #ffffff; 
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);
+}
+
+.status-approved { 
+    background: linear-gradient(135deg, #10b981, #059669); 
+    color: #ffffff; 
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+}
+
+.status-rejected { 
+    background: linear-gradient(135deg, #ef4444, #dc2626); 
+    color: #ffffff; 
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+
+.vote-count {
+    font-weight: 700;
+    color: #667eea;
+    font-size: 1.1rem;
+}
+
+.action-buttons {
     display: flex;
-    justify-content: space-between;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.action-buttons .btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+.action-buttons .btn:hover {
+    transform: translateY(-1px);
 }
 
 .filter-card {
     background: white;
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 15px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     margin-bottom: 2rem;
+    border: 1px solid rgba(255,255,255,0.8);
+    animation: fadeInUp 0.6s ease-out 0.3s both;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none;
+    border-radius: 10px;
+    padding: 0.6rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #5a67d8, #6b46c1);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(102, 126, 234, 0.4);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(16, 185, 129, 0.4);
+}
+
+.btn-outline-primary {
+    border: 2px solid var(--primary-color);
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    transform: translateY(-1px);
+}
+
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+}
+
+.no-candidates {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.no-candidates i {
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+    animation: pulse 2s infinite;
+}
+
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    padding: 0.6rem 0.75rem;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.pagination .page-link {
+    border-radius: 8px;
+    margin: 0 2px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+}
+
+.pagination .page-link:hover {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: var(--primary-color);
+}
+
+.fade-in {
+    animation: fadeInUp 0.6s ease-out both;
+}
+
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+
+/* Responsive Table Styles */
+@media (max-width: 1200px) {
+    .candidates-table th:nth-child(4),
+    .candidates-table td:nth-child(4) {
+        display: none; /* Hide Election column on smaller screens */
+    }
+}
+
+@media (max-width: 992px) {
+    .candidates-table th:nth-child(3),
+    .candidates-table td:nth-child(3) {
+        display: none; /* Hide Position column on tablets */
+    }
+    
+    .candidates-table-container {
+        font-size: 0.875rem;
+    }
+    
+    .candidate-details h6 {
+        font-size: 0.9rem;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .action-buttons .btn {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .candidates-table {
+        display: none; /* Hide table on mobile */
+    }
+    
+    .mobile-candidates-list {
+        display: block; /* Show mobile cards instead */
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    
+    .filter-card .d-flex {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 1rem;
+    }
+    
+    .filter-card form {
+        width: 100%;
+    }
+    
+    .filter-card .form-group {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Mobile candidates list (cards) */
+.mobile-candidates-list {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-candidates-list {
+        display: block;
+    }
+}
+
+.mobile-candidate-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e2e8f0;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.mobile-candidate-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.mobile-candidate-avatar {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.mobile-candidate-info h6 {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.mobile-candidate-info .text-muted {
+    font-size: 0.875rem;
+}
+
+.mobile-candidate-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+}
+
+.mobile-detail-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.mobile-detail-label {
+    font-weight: 500;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.mobile-detail-value {
+    color: #1e293b;
+    font-weight: 500;
+}
+
+.mobile-candidate-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.mobile-candidate-actions .btn {
+    flex: 1;
+    min-width: calc(50% - 0.25rem);
+    font-size: 0.875rem;
+    padding: 0.5rem;
+}
+
+/* Small mobile screens */
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .mobile-candidate-details {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    
+    .mobile-candidate-actions {
+        flex-direction: column;
+    }
+    
+    .mobile-candidate-actions .btn {
+        min-width: 100%;
+    }
 }
 </style>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="container">
+        <div class="text-center">
+            <h1 class="page-title">
+                <i class="fas fa-users me-3"></i>
+                Candidates Management
+            </h1>
+            <p class="page-subtitle">
+                Review, approve, and manage all candidate applications
+            </p>
+        </div>
+    </div>
+</div>
 
 <!-- Statistics -->
 <div class="stats-grid">
     <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-users"></i>
+        </div>
         <h3 class="stat-number"><?= number_format($stats['total']) ?></h3>
         <p class="stat-label">Total Candidates</p>
     </div>
     <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-clock"></i>
+        </div>
         <h3 class="stat-number"><?= number_format($stats['pending']) ?></h3>
         <p class="stat-label">Pending Approval</p>
     </div>
     <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
         <h3 class="stat-number"><?= number_format($stats['approved']) ?></h3>
         <p class="stat-label">Approved</p>
     </div>
     <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-times-circle"></i>
+        </div>
         <h3 class="stat-number"><?= number_format($stats['rejected']) ?></h3>
         <p class="stat-label">Rejected</p>
     </div>
@@ -334,7 +867,7 @@ include __DIR__ . '/../../includes/header.php';
         </form>
         
         <div class="d-flex gap-2">
-            <a href="<?= SITE_URL ?>election-officer/candidates/manage.php" class="btn btn-primary">
+            <a href="<?= SITE_URL ?>/election-officer/candidates/manage.php" class="btn btn-primary">
                 <i class="fas fa-plus me-2"></i>Add Candidate
             </a>
             <button class="btn btn-success" onclick="bulkApprove()">
@@ -344,97 +877,155 @@ include __DIR__ . '/../../includes/header.php';
     </div>
 </div>
 
-<!-- Candidates Grid -->
+<!-- Candidates Table -->
 <?php if (empty($candidates)): ?>
-    <div class="text-center py-5">
-        <i class="fas fa-users fa-4x text-muted mb-3"></i>
+    <div class="no-candidates">
+        <i class="fas fa-users fa-4x"></i>
         <h4>No Candidates Found</h4>
         <p class="text-muted mb-4">
             <?php if ($search || $election_filter || $position_filter || $status_filter): ?>
-                No candidates match your current filters.
+                No candidates match your current filters. Try adjusting your search criteria.
             <?php else: ?>
-                No candidates have been registered yet.
+                No candidates have been registered yet. Start by adding your first candidate!
             <?php endif; ?>
         </p>
-        <a href="<?= SITE_URL ?>election-officer/candidates/manage.php" class="btn btn-primary">
+        <a href="<?= SITE_URL ?>/election-officer/candidates/manage.php" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i>Add First Candidate
         </a>
     </div>
 <?php else: ?>
-    <div class="candidates-grid">
+    <div class="candidates-table-container">
+        <table class="candidates-table">
+            <thead>
+                <tr>
+                    <th>Candidate</th>
+                    <th>Position</th>
+                    <th>Election</th>
+                    <th>Class</th>
+                    <th>Votes</th>
+                    <th>Status</th>
+                    <th>Registered</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($candidates as $candidate): ?>
+                    <tr>
+                        <td>
+                            <div class="candidate-info-cell">
+                                <div class="candidate-avatar">
+                                    <?php
+                                    $names = explode(' ', $candidate['candidate_name']);
+                                    echo substr($names[0], 0, 1) . (isset($names[1]) ? substr($names[1], 0, 1) : '');
+                                    ?>
+                                </div>
+                                <div class="candidate-details">
+                                    <h6><?= sanitize($candidate['candidate_name']) ?></h6>
+                                    <small class="text-muted"><?= sanitize($candidate['gender']) ?></small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <strong><?= sanitize($candidate['position_name']) ?></strong>
+                        </td>
+                        <td>
+                            <?= sanitize($candidate['election_title']) ?>
+                            <br>
+                            <small class="text-muted">Status: <?= ucfirst($candidate['election_status']) ?></small>
+                        </td>
+                        <td>
+                            <?= sanitize($candidate['class']) ?>
+                        </td>
+                        <td>
+                            <span class="vote-count"><?= $candidate['vote_count'] ?></span>
+                        </td>
+                        <td>
+                            <span class="status-badge status-approved">
+                                Approved
+                            </span>
+                        </td>
+                        <td>
+                            <?= date('M j, Y', strtotime($candidate['created_at'])) ?>
+                            <br>
+                            <small class="text-muted"><?= date('g:i A', strtotime($candidate['created_at'])) ?></small>
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="<?= SITE_URL ?>/election-officer/candidates/manage.php?candidate_id=<?= $candidate['candidate_id'] ?>" 
+                                   class="btn btn-outline-primary btn-sm" title="Edit Candidate">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <button class="btn btn-outline-info btn-sm" 
+                                        onclick="viewCandidate(<?= $candidate['candidate_id'] ?>)" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" 
+                                        onclick="deleteCandidate(<?= $candidate['candidate_id'] ?>, '<?= sanitize($candidate['candidate_name']) ?>')" title="Delete Candidate">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Mobile Candidates List -->
+    <div class="mobile-candidates-list">
         <?php foreach ($candidates as $candidate): ?>
-            <div class="candidate-card">
-                <div class="candidate-header">
-                    <span class="status-badge status-<?= $candidate['approval_status'] ?>">
-                        <?= ucfirst($candidate['approval_status']) ?>
-                    </span>
-                    
-                    <div class="candidate-photo">
+            <div class="mobile-candidate-card">
+                <div class="mobile-candidate-header">
+                    <div class="mobile-candidate-avatar">
                         <?php
                         $names = explode(' ', $candidate['candidate_name']);
                         echo substr($names[0], 0, 1) . (isset($names[1]) ? substr($names[1], 0, 1) : '');
                         ?>
                     </div>
-                    
-                    <h3 class="candidate-name"><?= sanitize($candidate['candidate_name']) ?></h3>
-                    <p class="candidate-position"><?= sanitize($candidate['position_name']) ?></p>
+                    <div class="mobile-candidate-info">
+                        <h6><?= sanitize($candidate['candidate_name']) ?></h6>
+                        <small class="text-muted"><?= sanitize($candidate['gender']) ?></small>
+                    </div>
+                    <div class="ms-auto">
+                        <span class="status-badge status-approved">Approved</span>
+                    </div>
                 </div>
                 
-                <div class="candidate-body">
-                    <div class="candidate-info">
-                        <div class="candidate-info-item">
-                            <span>Student ID:</span>
-                            <strong><?= sanitize($candidate['student_number']) ?></strong>
-                        </div>
-                        <div class="candidate-info-item">
-                            <span>Program:</span>
-                            <strong><?= sanitize($candidate['program']) ?></strong>
-                        </div>
-                        <div class="candidate-info-item">
-                            <span>Class:</span>
-                            <strong><?= sanitize($candidate['class']) ?></strong>
-                        </div>
-                        <div class="candidate-info-item">
-                            <span>Votes:</span>
-                            <strong><?= $candidate['vote_count'] ?></strong>
-                        </div>
-                        <div class="candidate-info-item">
-                            <span>Election:</span>
-                            <strong><?= sanitize($candidate['election_title']) ?></strong>
-                        </div>
-                        <div class="candidate-info-item">
-                            <span>Registered:</span>
-                            <strong><?= date('M j, Y', strtotime($candidate['created_at'])) ?></strong>
-                        </div>
+                <div class="mobile-candidate-details">
+                    <div class="mobile-detail-item">
+                        <span class="mobile-detail-label">Position</span>
+                        <span class="mobile-detail-value"><?= sanitize($candidate['position_name']) ?></span>
                     </div>
-                    
-                    <div class="d-flex gap-2">
-                        <a href="<?= SITE_URL ?>election-officer/candidates/manage.php?id=<?= $candidate['candidate_id'] ?>" 
-                           class="btn btn-outline-primary btn-sm flex-fill">
-                            <i class="fas fa-edit me-1"></i>Edit
-                        </a>
-                        
-                        <?php if ($candidate['approval_status'] === 'pending'): ?>
-                            <button class="btn btn-success btn-sm" 
-                                    onclick="approveCandidate(<?= $candidate['candidate_id'] ?>, '<?= sanitize($candidate['candidate_name']) ?>')">
-                                <i class="fas fa-check me-1"></i>Approve
-                            </button>
-                            <button class="btn btn-danger btn-sm" 
-                                    onclick="rejectCandidate(<?= $candidate['candidate_id'] ?>, '<?= sanitize($candidate['candidate_name']) ?>')">
-                                <i class="fas fa-times me-1"></i>Reject
-                            </button>
-                        <?php elseif ($candidate['approval_status'] === 'approved'): ?>
-                            <button class="btn btn-warning btn-sm" 
-                                    onclick="rejectCandidate(<?= $candidate['candidate_id'] ?>, '<?= sanitize($candidate['candidate_name']) ?>')">
-                                <i class="fas fa-ban me-1"></i>Reject
-                            </button>
-                        <?php elseif ($candidate['approval_status'] === 'rejected'): ?>
-                            <button class="btn btn-success btn-sm" 
-                                    onclick="approveCandidate(<?= $candidate['candidate_id'] ?>, '<?= sanitize($candidate['candidate_name']) ?>')">
-                                <i class="fas fa-check me-1"></i>Approve
-                            </button>
-                        <?php endif; ?>
+                    <div class="mobile-detail-item">
+                        <span class="mobile-detail-label">Class</span>
+                        <span class="mobile-detail-value"><?= sanitize($candidate['class']) ?></span>
                     </div>
+                    <div class="mobile-detail-item">
+                        <span class="mobile-detail-label">Votes</span>
+                        <span class="mobile-detail-value"><?= $candidate['vote_count'] ?></span>
+                    </div>
+                    <div class="mobile-detail-item">
+                        <span class="mobile-detail-label">Registered</span>
+                        <span class="mobile-detail-value">
+                            <?= date('M j', strtotime($candidate['created_at'])) ?>
+                            <br><small class="text-muted"><?= date('g:i A', strtotime($candidate['created_at'])) ?></small>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="mobile-candidate-actions">
+                    <a href="<?= SITE_URL ?>/election-officer/candidates/manage.php?candidate_id=<?= $candidate['candidate_id'] ?>" 
+                       class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-edit me-1"></i>Edit
+                    </a>
+                    <button class="btn btn-outline-info btn-sm" 
+                            onclick="viewCandidate(<?= $candidate['candidate_id'] ?>)">
+                        <i class="fas fa-eye me-1"></i>View
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm" 
+                            onclick="confirmDelete(<?= $candidate['candidate_id'] ?>, '<?= addslashes($candidate['candidate_name']) ?>')">
+                        <i class="fas fa-trash me-1"></i>Delete
+                    </button>
                 </div>
             </div>
         <?php endforeach; ?>
@@ -492,7 +1083,7 @@ function loadPositions() {
     positionSelect.innerHTML = '<option value="">All Positions</option>';
     
     if (electionId) {
-        fetch(`<?= SITE_URL ?>api/elections/positions.php?election_id=${electionId}`)
+        fetch(`<?= SITE_URL ?>/api/elections/positions.php?election_id=${electionId}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -505,6 +1096,115 @@ function loadPositions() {
                 }
             })
             .catch(error => console.error('Error loading positions:', error));
+    }
+}
+
+function viewCandidate(candidateId) {
+    // Show loading state
+    const modal = new bootstrap.Modal(document.getElementById('candidateModal'));
+    document.getElementById('candidateModalContent').innerHTML = `
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="mt-3">Loading candidate details...</div>
+        </div>
+    `;
+    modal.show();
+    
+    // Fetch candidate data
+    fetch(`<?= SITE_URL ?>/api/candidates/view.php?id=${candidateId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayCandidateInfo(data.candidate);
+            } else {
+                document.getElementById('candidateModalContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error: ${data.message}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('candidateModalContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Failed to load candidate details.
+                </div>
+            `;
+        });
+}
+
+function displayCandidateInfo(candidate) {
+    const content = `
+        <div class="p-3">
+            <div class="text-center mb-3">
+                <h5>${candidate.candidate_name}</h5>
+                <p class="text-muted mb-0">${candidate.position_name}</p>
+                <small class="text-muted">${candidate.election_name}</small>
+                <br><span class="badge bg-primary mt-1">${candidate.vote_count} Votes</span>
+            </div>
+            
+            <div class="mb-2"><strong>Student ID:</strong> ${candidate.student_number}</div>
+            <div class="mb-2"><strong>Gender:</strong> ${candidate.gender}</div>
+            <div class="mb-2"><strong>Level:</strong> ${candidate.level}</div>
+            <div class="mb-2"><strong>Program:</strong> ${candidate.program}</div>
+            <div class="mb-2"><strong>Class:</strong> ${candidate.class}</div>
+            ${candidate.phone ? `<div class="mb-2"><strong>Phone:</strong> ${candidate.phone}</div>` : ''}
+            <div class="mb-3">
+                <strong>Status:</strong> 
+                <span class="badge bg-${candidate.election_status === 'active' ? 'success' : candidate.election_status === 'completed' ? 'secondary' : 'warning'}">
+                    ${candidate.election_status.charAt(0).toUpperCase() + candidate.election_status.slice(1)}
+                </span>
+            </div>
+            
+            <div class="text-center">
+                <a href="<?= SITE_URL ?>/election-officer/candidates/manage.php?candidate_id=${candidate.candidate_id}" 
+                   class="btn btn-primary btn-sm">Edit</a>
+                <button type="button" class="btn btn-secondary btn-sm ms-2" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('candidateModalContent').innerHTML = content;
+}
+
+function deleteCandidate(candidateId, candidateName) {
+    if (confirm(`Are you sure you want to delete candidate "${candidateName}"?\n\nThis action cannot be undone.`)) {
+        fetch('<?= SITE_URL ?>/api/candidates/delete.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                candidate_id: candidateId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the row from table with animation
+                const row = document.querySelector(`tr[data-candidate-id="${candidateId}"]`);
+                if (row) {
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(-20px)';
+                    setTimeout(() => {
+                        location.reload();
+                    }, 300);
+                } else {
+                    location.reload();
+                }
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting the candidate.');
+        });
     }
 }
 
@@ -522,7 +1222,7 @@ function rejectCandidate(candidateId, candidateName) {
 }
 
 function updateCandidateStatus(candidateId, status, reason = '') {
-    fetch('<?= SITE_URL ?>api/candidates/approve.php', {
+    fetch('<?= SITE_URL ?>/api/candidates/approve.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -549,8 +1249,8 @@ function updateCandidateStatus(candidateId, status, reason = '') {
 
 function bulkApprove() {
     if (confirm('Approve all pending candidates in current view?')) {
-        const pendingCards = document.querySelectorAll('.status-pending');
-        if (pendingCards.length === 0) {
+        const pendingBadges = document.querySelectorAll('.status-pending');
+        if (pendingBadges.length === 0) {
             alert('No pending candidates found in current view.');
             return;
         }
@@ -560,5 +1260,25 @@ function bulkApprove() {
     }
 }
 </script>
+
+<!-- Candidate View Modal -->
+<div class="modal fade" id="candidateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title">
+                    <i class="fas fa-user me-2"></i>Candidate Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="candidateModalContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>

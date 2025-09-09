@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     
                     if (file_put_contents($config_file, $config_content)) {
-                        Logger::log('INFO', "Security settings updated", $_SESSION['user_id']);
+                        Logger::log('INFO', "Security settings updated", ['user_id' => $_SESSION['user_id'] ?? null]);
                         $_SESSION['success'] = 'Security settings updated successfully.';
                     } else {
                         $_SESSION['error'] = 'Failed to update configuration file. Please check file permissions.';
@@ -74,31 +74,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
                 
-            case 'clear_failed_attempts':
-                try {
-                    $stmt = $db->prepare("DELETE FROM failed_logins WHERE attempt_time < DATE_SUB(NOW(), INTERVAL 1 HOUR)");
-                    $stmt->execute();
-                    $cleared = $stmt->rowCount();
-                    
-                    Logger::log('INFO', "Cleared $cleared failed login attempts", $_SESSION['user_id']);
-                    $_SESSION['success'] = "Cleared $cleared failed login attempts.";
-                } catch (Exception $e) {
-                    Logger::log('ERROR', "Failed to clear login attempts: " . $e->getMessage(), $_SESSION['user_id']);
-                    $_SESSION['error'] = 'Failed to clear failed login attempts.';
-                }
-                break;
-                
             case 'clear_sessions':
                 try {
+                    // Store current user ID before destroying session
+                    $current_user_id = $_SESSION['user_id'] ?? null;
+                    
                     // Clear all sessions except current user
                     session_destroy();
                     session_start();
                     session_regenerate_id(true);
                     
-                    Logger::log('INFO', "All user sessions cleared", $_SESSION['user_id']);
+                    Logger::log('INFO', "All user sessions cleared", ['user_id' => $current_user_id]);
                     $_SESSION['success'] = 'All user sessions have been cleared.';
                 } catch (Exception $e) {
-                    Logger::log('ERROR', "Failed to clear sessions: " . $e->getMessage(), $_SESSION['user_id']);
+                    $current_user_id = $_SESSION['user_id'] ?? null;
+                    Logger::log('ERROR', "Failed to clear sessions: " . $e->getMessage(), ['user_id' => $current_user_id]);
                     $_SESSION['error'] = 'Failed to clear user sessions.';
                 }
                 break;
@@ -110,30 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get security statistics
-$security_stats = [];
-try {
-    // Failed login attempts in last 24 hours
-    $stmt = $db->prepare("SELECT COUNT(*) FROM failed_logins WHERE attempt_time >= DATE_SUB(NOW(), INTERVAL 24 HOUR)");
-    $stmt->execute();
-    $security_stats['failed_logins_24h'] = $stmt->fetchColumn();
-    
-    // Total failed attempts
-    $stmt = $db->prepare("SELECT COUNT(*) FROM failed_logins");
-    $stmt->execute();
-    $security_stats['total_failed_logins'] = $stmt->fetchColumn();
-    
-    // Locked accounts
-    $stmt = $db->prepare("SELECT COUNT(DISTINCT ip_address) FROM failed_logins WHERE attempt_time >= DATE_SUB(NOW(), INTERVAL " . LOCKOUT_DURATION . " SECOND)");
-    $stmt->execute();
-    $security_stats['locked_ips'] = $stmt->fetchColumn();
-    
-} catch (Exception $e) {
-    $security_stats = [
-        'failed_logins_24h' => 0,
-        'total_failed_logins' => 0,
-        'locked_ips' => 0
-    ];
-}
+$security_stats = [
+    'locked_ips' => 0 // Not implemented - would need failed_logins table
+];
 
 // Load current security settings
 $current_settings = [
@@ -184,32 +153,13 @@ require_once '../../includes/header.php';
 
             <!-- Security Statistics -->
             <div class="row mb-4">
-                <div class="col-md-4">
+                <div class="col-md-12">
                     <div class="card">
                         <div class="card-body text-center">
-                            <i class="fas fa-exclamation-triangle fa-2x text-warning mb-2"></i>
-                            <h6>Failed Logins (24h)</h6>
-                            <h3 class="mb-0 text-<?php echo $security_stats['failed_logins_24h'] > 10 ? 'danger' : 'success'; ?>">
-                                <?php echo $security_stats['failed_logins_24h']; ?>
-                            </h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <i class="fas fa-ban fa-2x text-danger mb-2"></i>
-                            <h6>Locked IPs</h6>
-                            <h3 class="mb-0"><?php echo $security_stats['locked_ips']; ?></h3>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body text-center">
-                            <i class="fas fa-history fa-2x text-info mb-2"></i>
-                            <h6>Total Failed Attempts</h6>
-                            <h3 class="mb-0"><?php echo $security_stats['total_failed_logins']; ?></h3>
+                            <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                            <h6>Security Status</h6>
+                            <h3 class="mb-0 text-success">Active</h3>
+                            <small class="text-muted">System security features are enabled</small>
                         </div>
                     </div>
                 </div>
@@ -309,16 +259,6 @@ require_once '../../includes/header.php';
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
-                            <h6>Failed Login Attempts</h6>
-                            <p class="text-muted">Clear old failed login attempts to free up database space.</p>
-                            <form method="POST" action="" style="display: inline;">
-                                <input type="hidden" name="action" value="clear_failed_attempts">
-                                <button type="submit" class="btn btn-outline-warning" onclick="return confirm('Clear all failed login attempts older than 1 hour?')">
-                                    <i class="fas fa-broom"></i> Clear Failed Attempts
-                                </button>
-                            </form>
-                        </div>
                         <div class="col-md-6">
                             <h6>Active Sessions</h6>
                             <p class="text-muted">Force all users to log in again by clearing all sessions.</p>

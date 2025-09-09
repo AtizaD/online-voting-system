@@ -103,7 +103,7 @@ include __DIR__ . '/../../includes/header.php';
                             <?php endif; ?>
                             
                             <div class="d-flex gap-2">
-                                <a href="<?= SITE_URL ?>election-officer/results/view.php?election_id=<?= $election['election_id'] ?>" 
+                                <a href="<?= SITE_URL ?>/election-officer/results/view.php?election_id=<?= $election['election_id'] ?>" 
                                    class="btn btn-primary btn-sm flex-fill">
                                     <i class="fas fa-eye me-2"></i>View Results
                                 </a>

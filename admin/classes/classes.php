@@ -158,13 +158,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 try {
     $db = Database::getInstance()->getConnection();
     
-    // Get levels
-    $stmt = $db->prepare("SELECT * FROM levels WHERE is_active = 1 ORDER BY level_name ASC");
+    // Get levels with class counts
+    $stmt = $db->prepare("
+        SELECT l.*, 
+               COUNT(CASE WHEN c.is_active = 1 THEN 1 END) as active_classes,
+               COUNT(CASE WHEN c.is_active = 0 THEN 1 END) as inactive_classes,
+               COUNT(c.class_id) as total_classes
+        FROM levels l
+        LEFT JOIN classes c ON l.level_id = c.level_id
+        WHERE l.is_active = 1
+        GROUP BY l.level_id, l.level_name, l.is_active
+        ORDER BY l.level_name ASC
+    ");
     $stmt->execute();
     $levels = $stmt->fetchAll();
     
-    // Get programs
-    $stmt = $db->prepare("SELECT * FROM programs WHERE is_active = 1 ORDER BY program_name ASC");
+    // Get programs with class counts
+    $stmt = $db->prepare("
+        SELECT p.*, 
+               COUNT(CASE WHEN c.is_active = 1 THEN 1 END) as active_classes,
+               COUNT(CASE WHEN c.is_active = 0 THEN 1 END) as inactive_classes,
+               COUNT(c.class_id) as total_classes
+        FROM programs p
+        LEFT JOIN classes c ON p.program_id = c.program_id
+        WHERE p.is_active = 1
+        GROUP BY p.program_id, p.program_name, p.is_active
+        ORDER BY p.program_name ASC
+    ");
     $stmt->execute();
     $programs = $stmt->fetchAll();
     
@@ -392,23 +412,52 @@ include '../../includes/header.php';
         <!-- Classes List -->
         <div class="card">
             <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-list me-2"></i>All Classes
+                        <span class="badge bg-secondary ms-2" id="classCount"><?= count($classes) ?></span>
                     </h5>
-                    <div class="d-flex gap-2">
-                        <select class="form-select form-select-sm" id="levelFilter" style="width: auto;">
-                            <option value="">All Levels</option>
-                            <?php foreach ($levels as $level): ?>
-                                <option value="<?= $level['level_id'] ?>"><?= sanitize($level['level_name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <select class="form-select form-select-sm" id="programFilter" style="width: auto;">
-                            <option value="">All Programs</option>
-                            <?php foreach ($programs as $program): ?>
-                                <option value="<?= $program['program_id'] ?>"><?= sanitize($program['program_name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                </div>
+                
+                <!-- Enhanced Filter Controls -->
+                <div class="border-top pt-3">
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                <input type="text" class="form-control" id="searchFilter" placeholder="Search class names...">
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="levelFilter">
+                                <option value="">All Levels</option>
+                                <?php foreach ($levels as $level): ?>
+                                    <option value="<?= $level['level_id'] ?>">
+                                        <?= sanitize($level['level_name']) ?> (<?= $level['total_classes'] ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" id="programFilter">
+                                <option value="">All Programs</option>
+                                <?php foreach ($programs as $program): ?>
+                                    <option value="<?= $program['program_id'] ?>">
+                                        <?= sanitize($program['program_name']) ?> (<?= $program['total_classes'] ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2">
+                            <select class="form-select form-select-sm" id="statusFilter">
+                                <option value="">All Status</option>
+                                <option value="active">Active Only</option>
+                                <option value="inactive">Inactive Only</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -442,7 +491,10 @@ include '../../includes/header.php';
                             </thead>
                             <tbody>
                                 <?php foreach ($classes as $class): ?>
-                                    <tr data-level-id="<?= $class['level_id'] ?>" data-program-id="<?= $class['program_id'] ?>">
+                                    <tr data-level-id="<?= $class['level_id'] ?>" 
+                                        data-program-id="<?= $class['program_id'] ?>"
+                                        data-status="<?= $class['is_active'] ? 'active' : 'inactive' ?>"
+                                        data-class-name="<?= strtolower($class['class_name']) ?>">
                                         <td>
                                             <strong><?= sanitize($class['class_name']) ?></strong>
                                         </td>
@@ -713,37 +765,214 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteModal.show();
     };
     
-    // Filter functionality
+    // Enhanced filter functionality
+    const searchFilter = document.getElementById('searchFilter');
     const levelFilter = document.getElementById('levelFilter');
     const programFilter = document.getElementById('programFilter');
+    const statusFilter = document.getElementById('statusFilter');
     const table = document.getElementById('classesTable');
+    const classCount = document.getElementById('classCount');
+    
+    // Store original counts for filters
+    const originalCounts = {
+        levels: {},
+        programs: {},
+        status: { active: 0, inactive: 0 }
+    };
+    
+    // Initialize original counts from dropdown options
+    function initializeOriginalCounts() {
+        // Get level counts
+        if (levelFilter) {
+            Array.from(levelFilter.options).forEach(option => {
+                if (option.value) {
+                    const match = option.textContent.match(/\((\d+)\)$/);
+                    if (match) {
+                        originalCounts.levels[option.value] = {
+                            name: option.textContent.replace(/\s*\(\d+\)$/, ''),
+                            count: parseInt(match[1])
+                        };
+                    }
+                }
+            });
+        }
+        
+        // Get program counts
+        if (programFilter) {
+            Array.from(programFilter.options).forEach(option => {
+                if (option.value) {
+                    const match = option.textContent.match(/\((\d+)\)$/);
+                    if (match) {
+                        originalCounts.programs[option.value] = {
+                            name: option.textContent.replace(/\s*\(\d+\)$/, ''),
+                            count: parseInt(match[1])
+                        };
+                    }
+                }
+            });
+        }
+        
+        // Count initial active/inactive
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const status = row.dataset.status;
+            originalCounts.status[status]++;
+        });
+    }
+    
+    function updateFilterCounts(visibleRows) {
+        // Count visible items by category
+        const visibleCounts = {
+            levels: {},
+            programs: {},
+            status: { active: 0, inactive: 0 }
+        };
+        
+        visibleRows.forEach(row => {
+            const levelId = row.dataset.levelId;
+            const programId = row.dataset.programId;
+            const status = row.dataset.status;
+            
+            // Count by level
+            if (levelId) {
+                visibleCounts.levels[levelId] = (visibleCounts.levels[levelId] || 0) + 1;
+            }
+            
+            // Count by program
+            if (programId) {
+                visibleCounts.programs[programId] = (visibleCounts.programs[programId] || 0) + 1;
+            }
+            
+            // Count by status
+            visibleCounts.status[status]++;
+        });
+        
+        // Update level filter options
+        if (levelFilter) {
+            const selectedLevel = levelFilter.value;
+            Array.from(levelFilter.options).forEach(option => {
+                if (option.value && originalCounts.levels[option.value]) {
+                    const original = originalCounts.levels[option.value];
+                    const visible = visibleCounts.levels[option.value] || 0;
+                    const isCurrentlySelected = option.value === selectedLevel;
+                    
+                    // Show original count if this level is selected, otherwise show visible count
+                    const displayCount = isCurrentlySelected ? original.count : visible;
+                    option.textContent = `${original.name} (${displayCount})`;
+                    
+                    // Disable option if no visible classes (unless it's currently selected)
+                    option.disabled = !isCurrentlySelected && visible === 0;
+                }
+            });
+        }
+        
+        // Update program filter options
+        if (programFilter) {
+            const selectedProgram = programFilter.value;
+            Array.from(programFilter.options).forEach(option => {
+                if (option.value && originalCounts.programs[option.value]) {
+                    const original = originalCounts.programs[option.value];
+                    const visible = visibleCounts.programs[option.value] || 0;
+                    const isCurrentlySelected = option.value === selectedProgram;
+                    
+                    // Show original count if this program is selected, otherwise show visible count
+                    const displayCount = isCurrentlySelected ? original.count : visible;
+                    option.textContent = `${original.name} (${displayCount})`;
+                    
+                    // Disable option if no visible classes (unless it's currently selected)
+                    option.disabled = !isCurrentlySelected && visible === 0;
+                }
+            });
+        }
+        
+        // Update status filter options
+        if (statusFilter) {
+            const selectedStatus = statusFilter.value;
+            Array.from(statusFilter.options).forEach(option => {
+                if (option.value) {
+                    const status = option.value;
+                    const visible = visibleCounts.status[status] || 0;
+                    const isCurrentlySelected = option.value === selectedStatus;
+                    
+                    const displayCount = isCurrentlySelected ? originalCounts.status[status] : visible;
+                    const statusText = status === 'active' ? 'Active Only' : 'Inactive Only';
+                    option.textContent = `${statusText} (${displayCount})`;
+                    
+                    // Disable option if no visible classes (unless it's currently selected)
+                    option.disabled = !isCurrentlySelected && visible === 0;
+                }
+            });
+        }
+    }
     
     function filterTable() {
         if (!table) return;
         
+        const searchTerm = searchFilter ? searchFilter.value.toLowerCase().trim() : '';
         const selectedLevel = levelFilter ? levelFilter.value : '';
         const selectedProgram = programFilter ? programFilter.value : '';
+        const selectedStatus = statusFilter ? statusFilter.value : '';
         const rows = table.querySelectorAll('tbody tr');
+        
+        let visibleCount = 0;
+        const visibleRows = [];
         
         rows.forEach(row => {
             const levelId = row.dataset.levelId;
             const programId = row.dataset.programId;
+            const status = row.dataset.status;
+            const className = row.dataset.className;
             
+            // Apply all filters
+            const searchMatch = !searchTerm || className.includes(searchTerm);
             const levelMatch = !selectedLevel || levelId === selectedLevel;
             const programMatch = !selectedProgram || programId === selectedProgram;
+            const statusMatch = !selectedStatus || status === selectedStatus;
             
-            if (levelMatch && programMatch) {
+            if (searchMatch && levelMatch && programMatch && statusMatch) {
                 row.style.display = '';
+                visibleCount++;
+                visibleRows.push(row);
             } else {
                 row.style.display = 'none';
             }
         });
+        
+        // Update visible count
+        if (classCount) {
+            classCount.textContent = visibleCount;
+            classCount.className = visibleCount === <?= count($classes) ?> 
+                ? 'badge bg-secondary ms-2' 
+                : 'badge bg-info ms-2';
+        }
+        
+        // Update filter counts based on visible rows
+        updateFilterCounts(visibleRows);
     }
     
-    if (levelFilter && programFilter) {
+    // Add event listeners with debouncing for search
+    let searchTimeout;
+    if (searchFilter) {
+        searchFilter.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(filterTable, 300); // 300ms debounce
+        });
+    }
+    
+    if (levelFilter) {
         levelFilter.addEventListener('change', filterTable);
+    }
+    
+    if (programFilter) {
         programFilter.addEventListener('change', filterTable);
     }
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', filterTable);
+    }
+    
+    // Initialize original counts on page load
+    initializeOriginalCounts();
     
     // Auto-dismiss alerts
     setTimeout(function() {

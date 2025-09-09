@@ -619,7 +619,7 @@ function clearSelection() {
 function verifyStudent(studentId, status) {
     const action = status === 'verified' ? 'verify' : 'reject';
     if (confirm(`Are you sure you want to ${action} this student?`)) {
-        fetch('<?= SITE_URL ?>api/students/verify.php', {
+        fetch('<?= SITE_URL ?>/api/students/verify.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

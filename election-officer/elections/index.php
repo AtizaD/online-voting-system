@@ -88,57 +88,196 @@ include __DIR__ . '/../../includes/header.php';
 ?>
 
 <style>
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 30px, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes gradientFlow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 2rem 0;
+    margin: -20px -20px 2rem -20px;
+    border-radius: 0 0 15px 15px;
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="dots" width="20" height="20" patternUnits="userSpaceOnUse"><circle cx="10" cy="10" r="1" fill="%23ffffff" opacity="0.2"/></pattern></defs><rect width="100" height="100" fill="url(%23dots)"/></svg>');
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    position: relative;
+    z-index: 1;
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.page-subtitle {
+    font-size: 1rem;
+    opacity: 0.9;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+    animation: fadeInUp 0.6s ease-out 0.2s both;
+}
+
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
     margin-bottom: 2rem;
 }
 
 .stat-card {
     background: white;
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 15px;
+    padding: 1.75rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     text-align: center;
-    border-left: 4px solid var(--primary-color);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: fadeInUp 0.6s ease-out;
+    border: 1px solid rgba(255,255,255,0.8);
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c);
+    background-size: 300% 300%;
+    animation: gradientFlow 3s ease infinite;
+}
+
+.stat-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 12px 40px rgba(102, 126, 234, 0.15);
+}
+
+.stat-card:nth-child(1) { animation-delay: 0.1s; }
+.stat-card:nth-child(2) { animation-delay: 0.2s; }
+.stat-card:nth-child(3) { animation-delay: 0.3s; }
+.stat-card:nth-child(4) { animation-delay: 0.4s; }
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    margin: 0 auto 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.stat-card:hover .stat-icon {
+    animation: pulse 0.6s ease-in-out;
 }
 
 .stat-number {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #1e293b;
+    font-size: 2.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin: 0;
+    line-height: 1;
 }
 
 .stat-label {
     color: #64748b;
     font-size: 0.875rem;
+    font-weight: 500;
     margin: 0.5rem 0 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .election-card {
     background: white;
-    border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    margin-bottom: 1rem;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
     overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255,255,255,0.8);
+    animation: slideIn 0.6s ease-out;
 }
 
 .election-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.12);
 }
 
 .election-header {
-    padding: 1.5rem;
+    padding: 1.75rem;
     border-bottom: 1px solid #f1f5f9;
+    background: linear-gradient(135deg, #f8fafc, #ffffff);
+    position: relative;
+}
+
+.election-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    opacity: 0.6;
 }
 
 .election-title {
-    font-size: 1.25rem;
-    font-weight: 600;
+    font-size: 1.4rem;
+    font-weight: 700;
     color: #1e293b;
     margin: 0 0 0.5rem;
 }
@@ -146,10 +285,11 @@ include __DIR__ . '/../../includes/header.php';
 .election-description {
     color: #64748b;
     margin: 0;
+    line-height: 1.5;
 }
 
 .election-body {
-    padding: 1.5rem;
+    padding: 1.75rem;
 }
 
 .election-stats {
@@ -161,29 +301,45 @@ include __DIR__ . '/../../includes/header.php';
 
 .election-stat {
     text-align: center;
-    padding: 1rem;
-    background: #f8fafc;
-    border-radius: 0.375rem;
+    padding: 1.25rem;
+    background: linear-gradient(135deg, #f8fafc, #ffffff);
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.election-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-color: var(--primary-color);
 }
 
 .election-stat-number {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #1e293b;
+    font-size: 1.75rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin: 0;
 }
 
 .election-stat-label {
     font-size: 0.75rem;
     color: #64748b;
-    margin: 0.25rem 0 0;
+    font-weight: 500;
+    margin: 0.5rem 0 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .election-dates {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
 }
 
 .date-item {
@@ -192,45 +348,214 @@ include __DIR__ . '/../../includes/header.php';
     gap: 0.5rem;
     color: #64748b;
     font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+}
+
+.date-item:hover {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.date-item i {
+    color: var(--primary-color);
+    transition: color 0.3s ease;
+}
+
+.date-item:hover i {
+    color: white;
 }
 
 .status-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
     font-size: 0.75rem;
-    font-weight: 500;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
 }
 
-.status-draft { background: #f3f4f6; color: #374151; }
-.status-scheduled { background: #dbeafe; color: #1d4ed8; }
-.status-active { background: #dcfce7; color: #166534; }
-.status-completed { background: #f3e8ff; color: #7c3aed; }
-.status-cancelled { background: #fee2e2; color: #dc2626; }
+.status-badge::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.6s;
+}
+
+.status-badge:hover::before {
+    left: 100%;
+}
+
+.status-draft { 
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb); 
+    color: #374151; 
+    box-shadow: 0 2px 8px rgba(55, 65, 81, 0.15);
+}
+
+.status-scheduled { 
+    background: linear-gradient(135deg, #dbeafe, #bfdbfe); 
+    color: #1d4ed8; 
+    box-shadow: 0 2px 8px rgba(29, 78, 216, 0.2);
+}
+
+.status-active { 
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0); 
+    color: #166534; 
+    box-shadow: 0 2px 8px rgba(22, 101, 52, 0.2);
+}
+
+.status-completed { 
+    background: linear-gradient(135deg, #f3e8ff, #e9d5ff); 
+    color: #7c3aed; 
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2);
+}
+
+.status-cancelled { 
+    background: linear-gradient(135deg, #fee2e2, #fecaca); 
+    color: #dc2626; 
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+}
 
 .filter-card {
     background: white;
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border-radius: 15px;
+    padding: 1.75rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     margin-bottom: 2rem;
+    border: 1px solid rgba(255,255,255,0.8);
+    animation: fadeInUp 0.6s ease-out 0.3s both;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border: none;
+    border-radius: 10px;
+    padding: 0.6rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #5a67d8, #6b46c1);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(102, 126, 234, 0.4);
+}
+
+.btn-outline-primary {
+    border: 2px solid var(--primary-color);
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    transform: translateY(-1px);
+}
+
+.btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+}
+
+.no-elections {
+    text-align: center;
+    padding: 3rem 1rem;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.no-elections i {
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+}
+
+.fade-in {
+    animation: fadeInUp 0.6s ease-out both;
+}
+
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+
+.pagination .page-link {
+    border-radius: 8px;
+    margin: 0 2px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+}
+
+.pagination .page-link:hover {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.pagination .page-item.active .page-link {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    border-color: var(--primary-color);
 }
 </style>
+
+<!-- Page Header -->
+<div class="page-header">
+    <div class="container">
+        <div class="text-center">
+            <h1 class="page-title">
+                <i class="fas fa-poll me-3"></i>
+                Elections Management
+            </h1>
+            <p class="page-subtitle">
+                Create, manage, and monitor all your elections in one place
+            </p>
+        </div>
+    </div>
+</div>
 
 <!-- Statistics -->
 <div class="stats-grid">
     <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-poll"></i>
+        </div>
         <h3 class="stat-number"><?= number_format($stats['total']) ?></h3>
         <p class="stat-label">Total Elections</p>
     </div>
     <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-play-circle"></i>
+        </div>
         <h3 class="stat-number"><?= number_format($stats['active']) ?></h3>
         <p class="stat-label">Active Elections</p>
     </div>
     <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-clock"></i>
+        </div>
         <h3 class="stat-number"><?= number_format($stats['scheduled']) ?></h3>
         <p class="stat-label">Scheduled Elections</p>
     </div>
     <div class="stat-card">
+        <div class="stat-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
         <h3 class="stat-number"><?= number_format($stats['completed']) ?></h3>
         <p class="stat-label">Completed Elections</p>
     </div>
@@ -262,7 +587,7 @@ include __DIR__ . '/../../includes/header.php';
             </form>
         </div>
         
-        <a href="<?= SITE_URL ?>election-officer/elections/manage.php" class="btn btn-primary">
+        <a href="<?= SITE_URL ?>/election-officer/elections/manage.php" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i>Create Election
         </a>
     </div>
@@ -280,7 +605,7 @@ include __DIR__ . '/../../includes/header.php';
                 You haven't created any elections yet.
             <?php endif; ?>
         </p>
-        <a href="<?= SITE_URL ?>election-officer/elections/manage.php" class="btn btn-primary">
+        <a href="<?= SITE_URL ?>/election-officer/elections/manage.php" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i>Create First Election
         </a>
     </div>
@@ -327,11 +652,11 @@ include __DIR__ . '/../../includes/header.php';
                 </div>
                 
                 <div class="d-flex gap-2 flex-wrap">
-                    <a href="<?= SITE_URL ?>election-officer/elections/manage.php?id=<?= $election['election_id'] ?>" 
+                    <a href="<?= SITE_URL ?>/election-officer/elections/manage.php?id=<?= $election['election_id'] ?>" 
                        class="btn btn-outline-primary btn-sm">
                         <i class="fas fa-edit me-1"></i>Edit
                     </a>
-                    <a href="<?= SITE_URL ?>election-officer/elections/positions.php?election_id=<?= $election['election_id'] ?>" 
+                    <a href="<?= SITE_URL ?>/election-officer/elections/positions.php?election_id=<?= $election['election_id'] ?>" 
                        class="btn btn-outline-info btn-sm">
                         <i class="fas fa-list me-1"></i>Positions
                     </a>
@@ -348,7 +673,7 @@ include __DIR__ . '/../../includes/header.php';
                             <i class="fas fa-stop me-1"></i>End
                         </button>
                     <?php endif; ?>
-                    <a href="<?= SITE_URL ?>election-officer/results/view.php?election_id=<?= $election['election_id'] ?>" 
+                    <a href="<?= SITE_URL ?>/election-officer/results/view.php?election_id=<?= $election['election_id'] ?>" 
                        class="btn btn-outline-secondary btn-sm">
                         <i class="fas fa-chart-bar me-1"></i>Results
                     </a>

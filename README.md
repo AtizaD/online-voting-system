@@ -62,7 +62,7 @@ A comprehensive web-based voting system designed for educational institutions, p
 
 ### 1. Clone Repository
 ```bash
-git clone https://github.com/yourusername/online-voting-system.git
+git clone https://github.com/AtizaD/online-voting-system.git
 cd online-voting-system
 ```
 

@@ -1,53 +1,58 @@
 <?php
-require_once '../../config/config.php';
-require_once '../../config/database.php';
+require_once __DIR__ . '/../../auth/session.php';
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
-if (!isLoggedIn() || (!hasPermission('view_results') && !hasPermission('manage_voting'))) {
-    redirectTo('auth/index.php');
+// Load PhpSpreadsheet if available
+$autoload_paths = [
+    __DIR__ . '/../../vendor/autoload.php',
+    __DIR__ . '/../../autoload.php'
+];
+
+foreach ($autoload_paths as $path) {
+    if (file_exists($path)) {
+        require_once($path);
+        break;
+    }
 }
 
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Font;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+
+requireAuth(['election_officer']);
+
 $db = Database::getInstance()->getConnection();
-$current_user = getCurrentUser();
 
 // Get parameters
 $election_id = isset($_GET['election_id']) ? (int)$_GET['election_id'] : null;
 $format = isset($_GET['format']) ? sanitize($_GET['format']) : 'csv';
 
 // Validate format
-$allowed_formats = ['csv', 'excel', 'pdf', 'summary'];
+$allowed_formats = ['csv', 'excel', 'pdf'];
 if (!in_array($format, $allowed_formats)) {
     $format = 'csv';
 }
 
-// Export all elections summary if no specific election
-if (!$election_id && $format === 'summary') {
-    exportElectionsSummary($db, $format);
-    exit;
+if (!$election_id) {
+    $_SESSION['error'] = "Election ID is required.";
+    redirectTo('election-officer/results/');
 }
 
-// Get election data if specific election requested
-$election_data = null;
-$results = [];
+// Get election details
+$stmt = $db->prepare("SELECT * FROM elections WHERE election_id = ?");
+$stmt->execute([$election_id]);
+$election_data = $stmt->fetch();
 
-if ($election_id) {
-    // Get election details
-    $stmt = $db->prepare("
-        SELECT e.*, et.name as election_type_name
-        FROM elections e 
-        LEFT JOIN election_types et ON e.election_type_id = et.election_type_id
-        WHERE e.election_id = ?
-    ");
-    $stmt->execute([$election_id]);
-    $election_data = $stmt->fetch();
-
-    if (!$election_data) {
-        $_SESSION['error_message'] = "Election not found.";
-        redirectTo('admin/results/');
-    }
-
-    // Get comprehensive results
-    $results = getElectionResults($db, $election_id);
+if (!$election_data) {
+    $_SESSION['error'] = "Election not found.";
+    redirectTo('election-officer/results/');
 }
+
+// Get comprehensive results
+$results = getElectionResults($db, $election_id);
 
 // Handle different export formats
 switch ($format) {
@@ -61,24 +66,23 @@ switch ($format) {
         exportPDF($election_data, $results);
         break;
     default:
-        $_SESSION['error_message'] = "Invalid export format.";
-        redirectTo('admin/results/');
+        $_SESSION['error'] = "Invalid export format.";
+        redirectTo('election-officer/results/');
 }
 
 function getElectionResults($db, $election_id) {
-    // Get positions with results
+    // Get positions with results - ordered by display_order if available, then by title
     $stmt = $db->prepare("
-        SELECT p.position_id, p.title, p.description, p.display_order,
+        SELECT p.position_id, p.title, p.description,
+               COALESCE(p.display_order, 999) as display_order,
                COUNT(DISTINCT c.candidate_id) as candidate_count,
-               COUNT(v.vote_id) as total_votes,
-               COUNT(av.abstain_id) as abstain_votes
+               COUNT(v.vote_id) as total_votes
         FROM positions p
         LEFT JOIN candidates c ON p.position_id = c.position_id
         LEFT JOIN votes v ON c.candidate_id = v.candidate_id
-        LEFT JOIN abstain_votes av ON p.position_id = av.position_id
         WHERE p.election_id = ?
         GROUP BY p.position_id
-        ORDER BY p.display_order
+        ORDER BY display_order ASC, p.title ASC
     ");
     $stmt->execute([$election_id]);
     $positions = $stmt->fetchAll();
@@ -88,16 +92,19 @@ function getElectionResults($db, $election_id) {
         // Get candidates with vote counts
         $stmt = $db->prepare("
             SELECT c.candidate_id, c.student_id,
-                   s.first_name, s.last_name, s.student_number, s.program_id,
-                   p.program_name,
+                   CONCAT(s.first_name, ' ', s.last_name) as candidate_name,
+                   s.student_number,
+                   prog.program_name,
+                   cl.class_name,
                    COUNT(v.vote_id) as vote_count
             FROM candidates c
             JOIN students s ON c.student_id = s.student_id
-            JOIN programs p ON s.program_id = p.program_id
+            JOIN programs prog ON s.program_id = prog.program_id
+            JOIN classes cl ON s.class_id = cl.class_id
             LEFT JOIN votes v ON c.candidate_id = v.candidate_id
             WHERE c.position_id = ?
             GROUP BY c.candidate_id
-            ORDER BY vote_count DESC, s.last_name ASC
+            ORDER BY vote_count DESC, candidate_name ASC
         ");
         $stmt->execute([$position['position_id']]);
         $candidates = $stmt->fetchAll();
@@ -120,11 +127,6 @@ function getElectionResults($db, $election_id) {
 }
 
 function exportCSV($election_data, $results) {
-    if (!$election_data) {
-        $_SESSION['error_message'] = "Election data not found.";
-        redirectTo('admin/results/');
-    }
-
     $filename = 'election_results_' . $election_data['election_id'] . '_' . date('Y-m-d') . '.csv';
     
     header('Content-Type: text/csv');
@@ -137,7 +139,6 @@ function exportCSV($election_data, $results) {
     // Election header
     fputcsv($output, ['Election Results Export']);
     fputcsv($output, ['Election Name', $election_data['name']]);
-    fputcsv($output, ['Election Type', $election_data['election_type_name']]);
     fputcsv($output, ['Status', ucfirst($election_data['status'])]);
     fputcsv($output, ['Start Date', date('Y-m-d H:i:s', strtotime($election_data['start_date']))]);
     fputcsv($output, ['End Date', date('Y-m-d H:i:s', strtotime($election_data['end_date']))]);
@@ -147,13 +148,14 @@ function exportCSV($election_data, $results) {
     // Results data
     foreach ($results as $result) {
         fputcsv($output, ['POSITION: ' . $result['position']['title']]);
-        fputcsv($output, ['Candidate Name', 'Student Number', 'Program', 'Votes', 'Percentage', 'Winner']);
+        fputcsv($output, ['Candidate Name', 'Student Number', 'Program', 'Class', 'Votes', 'Percentage', 'Winner']);
         
         foreach ($result['candidates'] as $candidate) {
             fputcsv($output, [
-                $candidate['first_name'] . ' ' . $candidate['last_name'],
+                $candidate['candidate_name'],
                 $candidate['student_number'],
                 $candidate['program_name'],
+                $candidate['class_name'],
                 $candidate['vote_count'],
                 $candidate['percentage'] . '%',
                 $candidate['is_winner'] ? 'YES' : 'NO'
@@ -161,7 +163,6 @@ function exportCSV($election_data, $results) {
         }
         
         fputcsv($output, ['Total Votes', $result['total_votes']]);
-        fputcsv($output, ['Abstain Votes', $result['position']['abstain_votes']]);
         fputcsv($output, []);
     }
     
@@ -170,12 +171,192 @@ function exportCSV($election_data, $results) {
 }
 
 function exportExcel($election_data, $results) {
-    // For Excel export, we'll use HTML format that Excel can read
-    if (!$election_data) {
-        $_SESSION['error_message'] = "Election data not found.";
-        redirectTo('admin/results/');
+    // Check if PhpSpreadsheet is available
+    if (!class_exists('PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+        // Fallback to tab-separated format
+        exportExcelFallback($election_data, $results);
+        return;
     }
+    
+    $filename = 'election_results_' . $election_data['election_id'] . '_' . date('Y-m-d') . '.xlsx';
+    
+    $spreadsheet = new Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->setTitle('Election Results');
+    
+    // Set default font for entire sheet
+    $sheet->getParent()->getDefaultStyle()->getFont()->setName('Times New Roman')->setSize(12);
+    
+    $row = 1;
+    
+    // Election header - Font size 16
+    $sheet->setCellValue('A' . $row, 'Election Results Export');
+    $sheet->getStyle('A' . $row)->getFont()
+        ->setBold(true)
+        ->setSize(16)
+        ->setName('Times New Roman')
+        ->getColor()->setRGB('1F4E79'); // Dark blue
+    $sheet->getStyle('A' . $row)->getFill()
+        ->setFillType(Fill::FILL_SOLID)
+        ->getStartColor()->setRGB('E7F3FF'); // Light blue background
+    $row += 2;
+    
+    // Election information - Font size 12
+    $sheet->setCellValue('A' . $row, 'Election Name:');
+    $sheet->setCellValue('B' . $row, $election_data['name']);
+    $sheet->getStyle('A' . $row)->getFont()
+        ->setBold(true)
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $sheet->getStyle('B' . $row)->getFont()
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $row++;
+    
+    $sheet->setCellValue('A' . $row, 'Status:');
+    $sheet->setCellValue('B' . $row, ucfirst($election_data['status']));
+    $sheet->getStyle('A' . $row)->getFont()
+        ->setBold(true)
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $sheet->getStyle('B' . $row)->getFont()
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $row++;
+    
+    $sheet->setCellValue('A' . $row, 'Start Date:');
+    $sheet->setCellValue('B' . $row, date('Y-m-d H:i:s', strtotime($election_data['start_date'])));
+    $sheet->getStyle('A' . $row)->getFont()
+        ->setBold(true)
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $sheet->getStyle('B' . $row)->getFont()
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $row++;
+    
+    $sheet->setCellValue('A' . $row, 'End Date:');
+    $sheet->setCellValue('B' . $row, date('Y-m-d H:i:s', strtotime($election_data['end_date'])));
+    $sheet->getStyle('A' . $row)->getFont()
+        ->setBold(true)
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $sheet->getStyle('B' . $row)->getFont()
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $row++;
+    
+    $sheet->setCellValue('A' . $row, 'Export Date:');
+    $sheet->setCellValue('B' . $row, date('Y-m-d H:i:s'));
+    $sheet->getStyle('A' . $row)->getFont()
+        ->setBold(true)
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $sheet->getStyle('B' . $row)->getFont()
+        ->setSize(12)
+        ->setName('Times New Roman');
+    $row += 2;
+    
+    // Results data
+    foreach ($results as $result) {
+        // Position title - Font size 14
+        $sheet->setCellValue('A' . $row, 'POSITION: ' . $result['position']['title']);
+        $sheet->getStyle('A' . $row)->getFont()
+            ->setBold(true)
+            ->setSize(14)
+            ->setName('Times New Roman')
+            ->getColor()->setRGB('FFFFFF'); // White text
+        $sheet->getStyle('A' . $row)->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('2F5597'); // Dark blue background
+        $sheet->getStyle('A' . $row . ':G' . $row)->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('2F5597'); // Extend background across all columns
+        $row++;
+        
+        // Headers - Font size 12
+        $headers = ['Candidate Name', 'Student Number', 'Program', 'Class', 'Votes', 'Percentage', 'Winner'];
+        $col = 'A';
+        foreach ($headers as $header) {
+            $sheet->setCellValue($col . $row, $header);
+            $sheet->getStyle($col . $row)->getFont()
+                ->setBold(true)
+                ->setSize(12)
+                ->setName('Times New Roman')
+                ->getColor()->setRGB('000000'); // Black text
+            $sheet->getStyle($col . $row)->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('D9E2F3'); // Light blue background
+            $col++;
+        }
+        $row++;
+        
+        // Candidate data - Font size 12
+        foreach ($result['candidates'] as $candidate) {
+            $sheet->setCellValue('A' . $row, $candidate['candidate_name']);
+            $sheet->setCellValue('B' . $row, $candidate['student_number']);
+            $sheet->setCellValue('C' . $row, $candidate['program_name']);
+            $sheet->setCellValue('D' . $row, $candidate['class_name']);
+            $sheet->setCellValue('E' . $row, $candidate['vote_count']);
+            $sheet->setCellValue('F' . $row, $candidate['percentage'] / 100); // Store as decimal
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('0.00%'); // Format as percentage
+            $sheet->setCellValue('G' . $row, $candidate['is_winner'] ? 'YES' : 'NO');
+            
+            // Set font for all candidate data
+            $range = 'A' . $row . ':G' . $row;
+            $sheet->getStyle($range)->getFont()
+                ->setSize(12)
+                ->setName('Times New Roman');
+            
+            // Highlight winner
+            if ($candidate['is_winner']) {
+                $sheet->getStyle($range)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('C6EFCE'); // Light green
+                $sheet->getStyle($range)->getFont()
+                    ->setBold(true)
+                    ->getColor()->setRGB('006100'); // Dark green text
+            } else {
+                // Alternate row colors for non-winners
+                $bgColor = ($row % 2 == 0) ? 'F2F2F2' : 'FFFFFF'; // Light gray/white alternating
+                $sheet->getStyle($range)->getFill()
+                    ->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB($bgColor);
+            }
+            
+            $row++;
+        }
+        
+        // Total votes - Font size 12
+        $sheet->setCellValue('A' . $row, 'Total Votes:');
+        $sheet->setCellValue('B' . $row, $result['total_votes']);
+        $sheet->getStyle('A' . $row . ':B' . $row)->getFont()
+            ->setBold(true)
+            ->setSize(12)
+            ->setName('Times New Roman')
+            ->getColor()->setRGB('FFFFFF'); // White text
+        $sheet->getStyle('A' . $row . ':G' . $row)->getFill()
+            ->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('70AD47'); // Green background
+        $row += 2;
+    }
+    
+    // Auto-size columns
+    foreach (range('A', 'G') as $col) {
+        $sheet->getColumnDimension($col)->setAutoSize(true);
+    }
+    
+    // Output
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: max-age=0');
+    
+    $writer = new Xlsx($spreadsheet);
+    $writer->save('php://output');
+    exit;
+}
 
+function exportExcelFallback($election_data, $results) {
     $filename = 'election_results_' . $election_data['election_id'] . '_' . date('Y-m-d') . '.xls';
     
     header('Content-Type: application/vnd.ms-excel');
@@ -183,73 +364,64 @@ function exportExcel($election_data, $results) {
     header('Cache-Control: no-cache, must-revalidate');
     header('Expires: Sat, 26 Jul 1997 05:00:00 GMT');
 
-    echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
-    echo '<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>';
-    echo '<body>';
+    $output = fopen('php://output', 'w');
+    
+    // Election header
+    fputcsv($output, ['Election Results Export'], "\t");
+    fputcsv($output, ['Election Name', $election_data['name']], "\t");
+    fputcsv($output, ['Status', ucfirst($election_data['status'])], "\t");
+    fputcsv($output, ['Start Date', date('Y-m-d H:i:s', strtotime($election_data['start_date']))], "\t");
+    fputcsv($output, ['End Date', date('Y-m-d H:i:s', strtotime($election_data['end_date']))], "\t");
+    fputcsv($output, ['Export Date', date('Y-m-d H:i:s')], "\t");
+    fputcsv($output, [], "\t");
 
-    // Election information
-    echo '<table border="1">';
-    echo '<tr><td colspan="6"><h2>Election Results: ' . htmlspecialchars($election_data['name']) . '</h2></td></tr>';
-    echo '<tr><td><strong>Election Type:</strong></td><td>' . htmlspecialchars($election_data['election_type_name']) . '</td></tr>';
-    echo '<tr><td><strong>Status:</strong></td><td>' . ucfirst($election_data['status']) . '</td></tr>';
-    echo '<tr><td><strong>Start Date:</strong></td><td>' . date('Y-m-d H:i:s', strtotime($election_data['start_date'])) . '</td></tr>';
-    echo '<tr><td><strong>End Date:</strong></td><td>' . date('Y-m-d H:i:s', strtotime($election_data['end_date'])) . '</td></tr>';
-    echo '<tr><td><strong>Export Date:</strong></td><td>' . date('Y-m-d H:i:s') . '</td></tr>';
-    echo '<tr><td colspan="6"></td></tr>';
-
-    // Results
+    // Results data
     foreach ($results as $result) {
-        echo '<tr><td colspan="6"><h3>' . htmlspecialchars($result['position']['title']) . '</h3></td></tr>';
-        echo '<tr>';
-        echo '<td><strong>Candidate Name</strong></td>';
-        echo '<td><strong>Student Number</strong></td>';
-        echo '<td><strong>Program</strong></td>';
-        echo '<td><strong>Votes</strong></td>';
-        echo '<td><strong>Percentage</strong></td>';
-        echo '<td><strong>Winner</strong></td>';
-        echo '</tr>';
+        fputcsv($output, ['POSITION: ' . $result['position']['title']], "\t");
+        fputcsv($output, ['Candidate Name', 'Student Number', 'Program', 'Class', 'Votes', 'Percentage', 'Winner'], "\t");
         
         foreach ($result['candidates'] as $candidate) {
-            echo '<tr>';
-            echo '<td>' . htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']) . '</td>';
-            echo '<td>' . htmlspecialchars($candidate['student_number']) . '</td>';
-            echo '<td>' . htmlspecialchars($candidate['program_name']) . '</td>';
-            echo '<td>' . $candidate['vote_count'] . '</td>';
-            echo '<td>' . $candidate['percentage'] . '%</td>';
-            echo '<td>' . ($candidate['is_winner'] ? 'YES' : 'NO') . '</td>';
-            echo '</tr>';
+            fputcsv($output, [
+                $candidate['candidate_name'],
+                $candidate['student_number'],
+                $candidate['program_name'],
+                $candidate['class_name'],
+                $candidate['vote_count'],
+                $candidate['percentage'] . '%',
+                $candidate['is_winner'] ? 'YES' : 'NO'
+            ], "\t");
         }
         
-        echo '<tr><td><strong>Total Votes:</strong></td><td>' . $result['total_votes'] . '</td></tr>';
-        echo '<tr><td><strong>Abstain Votes:</strong></td><td>' . $result['position']['abstain_votes'] . '</td></tr>';
-        echo '<tr><td colspan="6"></td></tr>';
+        fputcsv($output, ['Total Votes', $result['total_votes']], "\t");
+        fputcsv($output, [], "\t");
     }
     
-    echo '</table>';
-    echo '</body></html>';
+    fclose($output);
     exit;
 }
 
 function exportPDF($election_data, $results) {
-    if (!$election_data) {
-        $_SESSION['error_message'] = "Election data not found.";
-        redirectTo('admin/results/');
-    }
-
     // Check if TCPDF is available
-    $tcpdf_path = __DIR__ . '/../../vendor/tecnickcom/tcpdf/tcpdf.php';
-    if (!file_exists($tcpdf_path)) {
-        // Try alternative path
-        $tcpdf_path = __DIR__ . '/../../tcpdf/tcpdf.php';
+    $tcpdf_paths = [
+        __DIR__ . '/../../vendor/tecnickcom/tcpdf/tcpdf.php',
+        __DIR__ . '/../../tcpdf/tcpdf.php',
+        __DIR__ . '/../../vendor/tcpdf/tcpdf.php'
+    ];
+    
+    $tcpdf_found = false;
+    foreach ($tcpdf_paths as $path) {
+        if (file_exists($path)) {
+            require_once($path);
+            $tcpdf_found = true;
+            break;
+        }
     }
     
-    if (!file_exists($tcpdf_path)) {
+    if (!$tcpdf_found) {
         // Fallback to HTML export if TCPDF not found
         exportPDFHtml($election_data, $results);
         return;
     }
-    
-    require_once($tcpdf_path);
     
     $filename = 'election_results_' . $election_data['election_id'] . '_' . date('Y-m-d_H-i-s') . '.pdf';
     
@@ -258,7 +430,6 @@ function exportPDF($election_data, $results) {
     
     // Set document information
     $pdf->SetCreator(SITE_NAME);
-    $pdf->SetAuthor($GLOBALS['current_user']['first_name'] . ' ' . $GLOBALS['current_user']['last_name']);
     $pdf->SetTitle('Election Results - ' . $election_data['name']);
     $pdf->SetSubject('Election Results Report');
     $pdf->SetKeywords('voting, results, election, report');
@@ -267,9 +438,9 @@ function exportPDF($election_data, $results) {
     $pdf->setPrintHeader(false);
     $pdf->setPrintFooter(false);
     
-    // Set margins
+    // Set margins - reduced bottom margin
     $pdf->SetMargins(15, 10, 15);
-    $pdf->SetAutoPageBreak(TRUE, 10);
+    $pdf->SetAutoPageBreak(TRUE, 20);
     
     // Set image scale factor
     $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
@@ -287,7 +458,7 @@ function exportPDF($election_data, $results) {
     
     $pdf->SetFont('helvetica', 'B', 16);
     $pdf->SetTextColor(108, 117, 125);
-    $pdf->Cell(0, 10, htmlspecialchars($election_data['name']), 0, 1, 'C');
+    $pdf->Cell(0, 10, $election_data['name'], 0, 1, 'C');
     
     $pdf->Ln(3);
     
@@ -301,66 +472,70 @@ function exportPDF($election_data, $results) {
     $pdf->Ln(2);
     
     // Election info in two columns
-    $pdf->Cell(90, 6, 'Election Type: ' . htmlspecialchars($election_data['election_type_name'] ?? 'N/A'), 0, 0);
-    $pdf->Cell(90, 6, 'Status: ' . ucfirst($election_data['status']), 0, 1);
+    $pdf->Cell(90, 6, 'Status: ' . ucfirst($election_data['status']), 0, 0);
+    $pdf->Cell(90, 6, 'Report Generated: ' . date('M j, Y H:i:s'), 0, 1);
     
     $pdf->Cell(90, 6, 'Start Date: ' . date('M j, Y H:i', strtotime($election_data['start_date'])), 0, 0);
     $pdf->Cell(90, 6, 'End Date: ' . date('M j, Y H:i', strtotime($election_data['end_date'])), 0, 1);
-    
-    $pdf->Cell(0, 6, 'Report Generated: ' . date('M j, Y H:i:s'), 0, 1);
     
     $pdf->Ln(8);
     
     // Results for each position
     foreach ($results as $result) {
-        // Check if we need a new page
-        if ($pdf->GetY() > 200) {
+        // Check if we need a new page - increased threshold
+        if ($pdf->GetY() > 240) {
             $pdf->AddPage();
         }
         
         // Position title
         $pdf->SetFont('helvetica', 'B', 14);
         $pdf->SetTextColor(0, 123, 255);
-        $pdf->Cell(0, 8, htmlspecialchars($result['position']['title']), 0, 1);
+        $pdf->Cell(0, 8, $result['position']['title'], 0, 1);
         $pdf->SetTextColor(0, 0, 0);
         
         if ($result['position']['description']) {
             $pdf->SetFont('helvetica', '', 9);
-            $pdf->Cell(0, 6, htmlspecialchars($result['position']['description']), 0, 1);
+            $pdf->Cell(0, 6, $result['position']['description'], 0, 1);
         }
         
         $pdf->Ln(2);
         
         if (!empty($result['candidates'])) {
             // Table headers
-            $pdf->SetFont('helvetica', 'B', 10);
+            $pdf->SetFont('helvetica', 'B', 9);
             $pdf->SetFillColor(0, 123, 255);
             $pdf->SetTextColor(255, 255, 255);
             
             $pdf->Cell(15, 8, 'Rank', 1, 0, 'C', true);
-            $pdf->Cell(50, 8, 'Candidate Name', 1, 0, 'L', true);
-            $pdf->Cell(35, 8, 'Student Number', 1, 0, 'C', true);
-            $pdf->Cell(40, 8, 'Program', 1, 0, 'L', true);
+            $pdf->Cell(40, 8, 'Candidate Name', 1, 0, 'L', true);
+            $pdf->Cell(25, 8, 'Student No.', 1, 0, 'C', true);
+            $pdf->Cell(35, 8, 'Program', 1, 0, 'L', true);
+            $pdf->Cell(25, 8, 'Class', 1, 0, 'L', true);
             $pdf->Cell(20, 8, 'Votes', 1, 0, 'C', true);
             $pdf->Cell(20, 8, '%', 1, 1, 'C', true);
             
             // Table data
-            $pdf->SetFont('helvetica', '', 9);
+            $pdf->SetFont('helvetica', '', 8);
             $pdf->SetTextColor(0, 0, 0);
             
             foreach ($result['candidates'] as $index => $candidate) {
                 $fill = $candidate['is_winner'];
-                $pdf->SetFillColor($fill ? 212, 237, 218 : 248, 249, 250);
+                if ($fill) {
+                    $pdf->SetFillColor(212, 237, 218);
+                } else {
+                    $pdf->SetFillColor(248, 249, 250);
+                }
                 
                 $pdf->Cell(15, 6, ($index + 1), 1, 0, 'C', true);
                 
-                $name = htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']);
+                $name = $candidate['candidate_name'];
                 if ($candidate['is_winner']) {
-                    $name .= ' (WINNER)';
+                    $name .= ' *';
                 }
-                $pdf->Cell(50, 6, $name, 1, 0, 'L', true);
-                $pdf->Cell(35, 6, htmlspecialchars($candidate['student_number']), 1, 0, 'C', true);
-                $pdf->Cell(40, 6, htmlspecialchars($candidate['program_name']), 1, 0, 'L', true);
+                $pdf->Cell(40, 6, $name, 1, 0, 'L', true);
+                $pdf->Cell(25, 6, $candidate['student_number'], 1, 0, 'C', true);
+                $pdf->Cell(35, 6, $candidate['program_name'], 1, 0, 'L', true);
+                $pdf->Cell(25, 6, $candidate['class_name'], 1, 0, 'L', true);
                 $pdf->Cell(20, 6, $candidate['vote_count'], 1, 0, 'C', true);
                 $pdf->Cell(20, 6, $candidate['percentage'] . '%', 1, 1, 'C', true);
             }
@@ -368,7 +543,7 @@ function exportPDF($election_data, $results) {
             // Statistics row
             $pdf->SetFont('helvetica', 'B', 9);
             $pdf->SetFillColor(233, 236, 239);
-            $pdf->Cell(180, 6, 'Total Votes: ' . $result['total_votes'] . ' | Abstain Votes: ' . $result['position']['abstain_votes'] . ' | Candidates: ' . count($result['candidates']), 1, 1, 'L', true);
+            $pdf->Cell(180, 6, 'Total Votes: ' . $result['total_votes'] . ' | Candidates: ' . count($result['candidates']) . ' | * = Winner', 1, 1, 'L', true);
             
         } else {
             $pdf->SetFont('helvetica', 'I', 10);
@@ -378,13 +553,11 @@ function exportPDF($election_data, $results) {
         $pdf->Ln(6);
     }
     
-    // Footer
-    $pdf->SetY(-30);
+    // Footer - moved closer to bottom
+    $pdf->SetY(-15);
     $pdf->SetFont('helvetica', '', 8);
     $pdf->SetTextColor(108, 117, 125);
     $pdf->Cell(0, 6, 'Generated by: ' . SITE_NAME . ' | Report Generated: ' . date('M j, Y \a\t H:i:s'), 0, 1, 'L');
-    $pdf->Cell(0, 6, 'Generated by: ' . htmlspecialchars($GLOBALS['current_user']['first_name'] . ' ' . $GLOBALS['current_user']['last_name']), 0, 1, 'L');
-    $pdf->Cell(0, 6, 'Generated with Claude Code - Advanced AI-powered voting system', 0, 1, 'L');
     
     // Output PDF
     $pdf->Output($filename, 'D'); // D = download
@@ -392,7 +565,7 @@ function exportPDF($election_data, $results) {
 }
 
 function exportPDFHtml($election_data, $results) {
-    // Fallback HTML export (original implementation)
+    // Fallback HTML export when TCPDF is not available
     ?>
     <!DOCTYPE html>
     <html>
@@ -436,7 +609,6 @@ function exportPDFHtml($election_data, $results) {
         <div class="election-info">
             <h3>Election Information</h3>
             <table>
-                <tr><td><strong>Election Type:</strong></td><td><?= htmlspecialchars($election_data['election_type_name']) ?></td></tr>
                 <tr><td><strong>Status:</strong></td><td><?= ucfirst($election_data['status']) ?></td></tr>
                 <tr><td><strong>Start Date:</strong></td><td><?= date('F j, Y g:i A', strtotime($election_data['start_date'])) ?></td></tr>
                 <tr><td><strong>End Date:</strong></td><td><?= date('F j, Y g:i A', strtotime($election_data['end_date'])) ?></td></tr>
@@ -461,6 +633,7 @@ function exportPDFHtml($election_data, $results) {
                                 <th>Candidate Name</th>
                                 <th>Student Number</th>
                                 <th>Program</th>
+                                <th>Class</th>
                                 <th>Votes</th>
                                 <th>Percentage</th>
                             </tr>
@@ -470,11 +643,12 @@ function exportPDFHtml($election_data, $results) {
                                 <tr class="<?= $candidate['is_winner'] ? 'winner' : '' ?>">
                                     <td><?= $index + 1 ?></td>
                                     <td>
-                                        <?= htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']) ?>
+                                        <?= htmlspecialchars($candidate['candidate_name']) ?>
                                         <?php if ($candidate['is_winner']): ?> (WINNER)<?php endif; ?>
                                     </td>
                                     <td><?= htmlspecialchars($candidate['student_number']) ?></td>
                                     <td><?= htmlspecialchars($candidate['program_name']) ?></td>
+                                    <td><?= htmlspecialchars($candidate['class_name']) ?></td>
                                     <td><?= $candidate['vote_count'] ?></td>
                                     <td><?= $candidate['percentage'] ?>%</td>
                                 </tr>
@@ -488,7 +662,6 @@ function exportPDFHtml($election_data, $results) {
                 <div class="stats">
                     <strong>Statistics:</strong> 
                     Total Votes: <?= $result['total_votes'] ?> | 
-                    Abstain Votes: <?= $result['position']['abstain_votes'] ?> | 
                     Candidates: <?= count($result['candidates']) ?>
                 </div>
             </div>
@@ -500,64 +673,6 @@ function exportPDFHtml($election_data, $results) {
     </body>
     </html>
     <?php
-    exit;
-}
-
-function exportElectionsSummary($db, $format) {
-    // Get all elections summary
-    $stmt = $db->query("
-        SELECT e.election_id, e.name, e.status, e.start_date, e.end_date,
-               et.name as election_type_name,
-               COUNT(DISTINCT vs.student_id) as total_voters,
-               COUNT(v.vote_id) as total_votes,
-               (SELECT COUNT(*) FROM positions WHERE election_id = e.election_id) as total_positions
-        FROM elections e
-        LEFT JOIN election_types et ON e.election_type_id = et.election_type_id
-        LEFT JOIN voting_sessions vs ON e.election_id = vs.election_id AND vs.status = 'completed'
-        LEFT JOIN votes v ON vs.session_id = v.session_id
-        GROUP BY e.election_id
-        ORDER BY e.start_date DESC
-    ");
-    $elections = $stmt->fetchAll();
-
-    $filename = 'elections_summary_' . date('Y-m-d') . '.csv';
-    
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    
-    $output = fopen('php://output', 'w');
-    
-    fputcsv($output, ['Elections Summary Report']);
-    fputcsv($output, ['Generated on', date('Y-m-d H:i:s')]);
-    fputcsv($output, []);
-    
-    fputcsv($output, [
-        'Election ID',
-        'Election Name', 
-        'Type',
-        'Status',
-        'Start Date',
-        'End Date',
-        'Total Positions',
-        'Total Voters',
-        'Total Votes'
-    ]);
-    
-    foreach ($elections as $election) {
-        fputcsv($output, [
-            $election['election_id'],
-            $election['name'],
-            $election['election_type_name'],
-            ucfirst($election['status']),
-            date('Y-m-d', strtotime($election['start_date'])),
-            date('Y-m-d', strtotime($election['end_date'])),
-            $election['total_positions'],
-            $election['total_voters'],
-            $election['total_votes']
-        ]);
-    }
-    
-    fclose($output);
     exit;
 }
 

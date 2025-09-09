@@ -23,7 +23,7 @@ define('SITE_TITLE', 'Online Voting Platform');
 define('ADMIN_EMAIL', 'admin@evoting.local');
 define('SYSTEM_EMAIL', 'system@evoting.local');
 
-define('TIMEZONE', 'Africa/Lagos');
+define('TIMEZONE', 'Africa/Accra');
 date_default_timezone_set(TIMEZONE);
 
 define('SESSION_TIMEOUT', 1800); // 30 minutes

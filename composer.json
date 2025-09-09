@@ -12,6 +12,7 @@
         }
     ],
     "require": {
-        "tecnickcom/tcpdf": "^6.10"
+        "tecnickcom/tcpdf": "^6.10",
+        "phpoffice/phpspreadsheet": "^1.29"
     }
 }

@@ -32,11 +32,12 @@ $breadcrumbs = [
 // Get election statistics
 $stmt = $db->prepare("
     SELECT 
-        COUNT(DISTINCT v.student_id) as total_voters,
+        COUNT(DISTINCT vs.student_id) as total_voters,
         COUNT(DISTINCT v.vote_id) as total_votes,
         COUNT(DISTINCT s.student_id) as eligible_voters
     FROM students s
-    LEFT JOIN votes v ON s.student_id = v.student_id AND v.election_id = ?
+    LEFT JOIN voting_sessions vs ON s.student_id = vs.student_id AND vs.election_id = ?
+    LEFT JOIN votes v ON vs.session_id = v.session_id
     WHERE s.is_active = 1 AND s.is_verified = 1
 ");
 $stmt->execute([$election_id]);
@@ -49,8 +50,7 @@ $turnout_percentage = $vote_stats['eligible_voters'] > 0 ?
 $stmt = $db->prepare("
     SELECT 
         p.position_id,
-        p.position_name,
-        p.max_votes_per_voter,
+        p.title as position_name,
         COUNT(DISTINCT v.vote_id) as total_position_votes
     FROM positions p
     LEFT JOIN votes v ON p.position_id = v.position_id
@@ -68,11 +68,9 @@ foreach ($positions as $position) {
         SELECT 
             c.candidate_id,
             CONCAT(s.first_name, ' ', s.last_name) as candidate_name,
-            s.student_id as student_number,
-            s.program,
-            s.class,
-            c.platform_statement,
-            c.campaign_slogan,
+            s.student_number,
+            prog.program_name as program,
+            cl.class_name as class,
             COUNT(v.vote_id) as vote_count,
             CASE 
                 WHEN ? > 0 THEN ROUND((COUNT(v.vote_id) / ?) * 100, 1)
@@ -80,6 +78,8 @@ foreach ($positions as $position) {
             END as vote_percentage
         FROM candidates c
         JOIN students s ON c.student_id = s.student_id
+        JOIN programs prog ON s.program_id = prog.program_id
+        JOIN classes cl ON s.class_id = cl.class_id
         LEFT JOIN votes v ON c.candidate_id = v.candidate_id
         WHERE c.position_id = ?
         GROUP BY c.candidate_id
@@ -102,14 +102,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $stmt = $db->prepare("
                 UPDATE elections 
-                SET results_published = 1, results_published_at = NOW(), updated_at = NOW()
+                SET results_public = 1, results_published_at = NOW(), updated_at = NOW()
                 WHERE election_id = ?
             ");
             $stmt->execute([$election_id]);
             
             logActivity('results_publish', "Results published for election: {$election['name']}");
             $_SESSION['success'] = 'Election results have been published successfully!';
-            redirectTo("election-officer/results/view.php?election_id=$election_id");
+            redirectTo("/election-officer/results/view.php?election_id=$election_id");
             
         } catch (Exception $e) {
             $error = 'Failed to publish results. Please try again.';
@@ -121,14 +121,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $stmt = $db->prepare("
                 UPDATE elections 
-                SET results_published = 0, results_published_at = NULL, updated_at = NOW()
+                SET results_public = 0, results_published_at = NULL, updated_at = NOW()
                 WHERE election_id = ?
             ");
             $stmt->execute([$election_id]);
             
             logActivity('results_unpublish', "Results unpublished for election: {$election['name']}");
             $_SESSION['success'] = 'Election results have been unpublished successfully!';
-            redirectTo("election-officer/results/view.php?election_id=$election_id");
+            redirectTo("/election-officer/results/view.php?election_id=$election_id");
             
         } catch (Exception $e) {
             $error = 'Failed to unpublish results. Please try again.';
@@ -367,7 +367,7 @@ include __DIR__ . '/../../includes/header.php';
 <div class="actions-card">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div>
-            <?php if ($election['results_published']): ?>
+            <?php if ($election['results_public']): ?>
                 <span class="status-published">
                     <i class="fas fa-eye"></i>
                     Results Published
@@ -384,7 +384,7 @@ include __DIR__ . '/../../includes/header.php';
         </div>
         
         <div class="d-flex gap-2">
-            <?php if ($election['results_published']): ?>
+            <?php if ($election['results_public']): ?>
                 <form method="POST" style="display: inline;">
                     <input type="hidden" name="action" value="unpublish_results">
                     <button type="submit" class="btn btn-warning" onclick="return confirm('Are you sure you want to unpublish the results? Students will no longer be able to view them.')">
@@ -400,11 +400,24 @@ include __DIR__ . '/../../includes/header.php';
                 </form>
             <?php endif; ?>
             
-            <a href="<?= SITE_URL ?>election-officer/results/export.php?election_id=<?= $election_id ?>" class="btn btn-outline-primary">
-                <i class="fas fa-download me-2"></i>Export Results
-            </a>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-download me-2"></i>Export Results
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="<?= SITE_URL ?>/election-officer/results/export.php?election_id=<?= $election_id ?>&format=csv">
+                        <i class="fas fa-file-csv me-2"></i>Export as CSV
+                    </a></li>
+                    <li><a class="dropdown-item" href="<?= SITE_URL ?>/election-officer/results/export.php?election_id=<?= $election_id ?>&format=excel">
+                        <i class="fas fa-file-excel me-2"></i>Export as Excel
+                    </a></li>
+                    <li><a class="dropdown-item" href="<?= SITE_URL ?>/election-officer/results/export.php?election_id=<?= $election_id ?>&format=pdf">
+                        <i class="fas fa-file-pdf me-2"></i>Export as PDF
+                    </a></li>
+                </ul>
+            </div>
             
-            <a href="<?= SITE_URL ?>election-officer/elections/" class="btn btn-outline-secondary">
+            <a href="<?= SITE_URL ?>/election-officer/elections/" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i>Back to Elections
             </a>
         </div>
@@ -464,11 +477,6 @@ include __DIR__ . '/../../includes/header.php';
                                 <?= sanitize($candidate['program']) ?> • 
                                 <?= sanitize($candidate['class']) ?>
                             </div>
-                            <?php if ($candidate['campaign_slogan']): ?>
-                                <div class="candidate-details">
-                                    <em>"<?= sanitize($candidate['campaign_slogan']) ?>"</em>
-                                </div>
-                            <?php endif; ?>
                         </div>
                         
                         <div class="vote-bar-container">

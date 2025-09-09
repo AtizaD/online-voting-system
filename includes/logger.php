@@ -223,6 +223,11 @@ class Logger {
             'execution_time' => microtime(true) - ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true))
         ];
         
+        // Ensure context is always an array
+        if (!is_array($context)) {
+            $context = [];
+        }
+        
         $context = array_merge($context, $systemContext);
         
         $contextStr = '';

@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../auth/session.php';
 require_once __DIR__ . '/../../includes/functions.php';
+
 
 // Check if user is logged in and is election officer
 requireAuth(['election_officer']);
@@ -11,8 +13,8 @@ $current_user = getCurrentUser();
 
 $page_title = 'Manage Candidates';
 $breadcrumbs = [
-    ['title' => 'Election Officer', 'url' => SITE_URL . 'election-officer/'],
-    ['title' => 'Candidates', 'url' => SITE_URL . 'election-officer/candidates/'],
+    ['title' => 'Election Officer', 'url' => SITE_URL . '/election-officer/'],
+    ['title' => 'Candidates', 'url' => SITE_URL . '/election-officer/candidates/'],
     ['title' => 'Manage Candidates']
 ];
 
@@ -275,6 +277,7 @@ try {
         ");
         $stmt->execute([$candidate_id]);
         $editing_candidate = $stmt->fetch();
+        
     }
     
 } catch (Exception $e) {
@@ -295,11 +298,11 @@ include __DIR__ . '/../../includes/header.php';
         <small class="text-muted"><?= $editing_candidate ? 'Update candidate information' : 'Add, edit, or remove election candidates' ?></small>
     </div>
     <div class="d-flex gap-2">
-        <a href="<?= SITE_URL ?>election-officer/candidates/" class="btn btn-outline-secondary">
+        <a href="<?= SITE_URL ?>/election-officer/candidates/" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left me-2"></i>Back to Overview
         </a>
         <?php if ($editing_candidate): ?>
-            <a href="<?= SITE_URL ?>election-officer/candidates/manage.php" class="btn btn-success">
+            <a href="<?= SITE_URL ?>/election-officer/candidates/manage.php" class="btn btn-success">
                 <i class="fas fa-plus me-2"></i>Add New
             </a>
         <?php endif; ?>
@@ -314,6 +317,7 @@ include __DIR__ . '/../../includes/header.php';
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 <?php endif; ?>
+
 
 <?php if ($success): ?>
     <div class="alert alert-success alert-dismissible fade show" role="alert">
@@ -427,7 +431,7 @@ include __DIR__ . '/../../includes/header.php';
                     </div>
                     
                     <div class="d-flex gap-2 justify-content-end">
-                        <a href="<?= SITE_URL ?>election-officer/candidates/" class="btn btn-secondary">Cancel</a>
+                        <a href="<?= SITE_URL ?>/election-officer/candidates/" class="btn btn-secondary">Cancel</a>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-<?= $editing_candidate ? 'save' : 'plus' ?> me-2"></i>
                             <?= $editing_candidate ? 'Update Candidate' : 'Add Candidate' ?>
@@ -448,13 +452,13 @@ include __DIR__ . '/../../includes/header.php';
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="<?= SITE_URL ?>election-officer/candidates/" class="btn btn-outline-primary btn-sm">
+                    <a href="<?= SITE_URL ?>/election-officer/candidates/" class="btn btn-outline-primary btn-sm">
                         <i class="fas fa-list me-2"></i>View All Candidates
                     </a>
-                    <a href="<?= SITE_URL ?>election-officer/students/verify.php" class="btn btn-outline-success btn-sm">
+                    <a href="<?= SITE_URL ?>/election-officer/students/verify.php" class="btn btn-outline-success btn-sm">
                         <i class="fas fa-user-check me-2"></i>Verify Students
                     </a>
-                    <a href="<?= SITE_URL ?>election-officer/elections/" class="btn btn-outline-warning btn-sm">
+                    <a href="<?= SITE_URL ?>/election-officer/elections/" class="btn btn-outline-warning btn-sm">
                         <i class="fas fa-poll me-2"></i>Manage Elections
                     </a>
                 </div>

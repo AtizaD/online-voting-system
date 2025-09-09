@@ -368,6 +368,14 @@ include '../../includes/header.php';
 let autoRefreshInterval = null;
 let isAutoRefreshOn = false;
 
+// Check localStorage for auto-refresh state on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const savedState = localStorage.getItem('voting_monitor_auto_refresh');
+    if (savedState === 'true') {
+        toggleAutoRefresh();
+    }
+});
+
 function toggleAutoRefresh() {
     const btn = document.getElementById('autoRefresh');
     
@@ -377,12 +385,14 @@ function toggleAutoRefresh() {
         btn.classList.remove('btn-success');
         btn.classList.add('btn-info');
         isAutoRefreshOn = false;
+        localStorage.setItem('voting_monitor_auto_refresh', 'false');
     } else {
         autoRefreshInterval = setInterval(refreshData, 30000); // 30 seconds
         btn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Auto Refresh: ON';
         btn.classList.remove('btn-info');
         btn.classList.add('btn-success');
         isAutoRefreshOn = true;
+        localStorage.setItem('voting_monitor_auto_refresh', 'true');
     }
 }
 
@@ -392,7 +402,7 @@ function refreshData() {
     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
     
     // In a real implementation, you would fetch new data via AJAX here
-    // For now, we'll just reload the page
+    // For now, we'll just reload the page but preserve the auto-refresh state
     if (isAutoRefreshOn) {
         location.reload();
     }

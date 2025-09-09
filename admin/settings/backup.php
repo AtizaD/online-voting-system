@@ -68,13 +68,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     exec($command, $output, $return_var);
                     
                     if ($return_var === 0 && file_exists($backup_file)) {
-                        Logger::log('INFO', "Database backup created: {$backup_name}", $_SESSION['user_id']);
+                        Logger::log('INFO', "Database backup created: {$backup_name}", ['user_id' => $_SESSION['user_id'] ?? null]);
                         $_SESSION['success'] = "Backup '{$backup_name}' created successfully.";
                     } else {
                         $_SESSION['error'] = 'Failed to create database backup. Please check server configuration.';
                     }
                 } catch (Exception $e) {
-                    Logger::log('ERROR', "Backup failed: " . $e->getMessage(), $_SESSION['user_id']);
+                    Logger::log('ERROR', "Backup failed: " . $e->getMessage(), ['user_id' => $_SESSION['user_id'] ?? null]);
                     $_SESSION['error'] = 'Backup failed: ' . $e->getMessage();
                 }
                 break;
@@ -106,13 +106,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         exec($command, $output, $return_var);
                         
                         if ($return_var === 0) {
-                            Logger::log('INFO', "Database restored from: {$backup_file}", $_SESSION['user_id']);
+                            Logger::log('INFO', "Database restored from: {$backup_file}", ['user_id' => $_SESSION['user_id'] ?? null]);
                             $_SESSION['success'] = "Database restored from '{$backup_file}' successfully.";
                         } else {
                             $_SESSION['error'] = 'Failed to restore database. Please check the backup file.';
                         }
                     } catch (Exception $e) {
-                        Logger::log('ERROR', "Restore failed: " . $e->getMessage(), $_SESSION['user_id']);
+                        Logger::log('ERROR', "Restore failed: " . $e->getMessage(), ['user_id' => $_SESSION['user_id'] ?? null]);
                         $_SESSION['error'] = 'Restore failed: ' . $e->getMessage();
                     }
                 }
@@ -124,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if (file_exists($backup_path)) {
                     if (unlink($backup_path)) {
-                        Logger::log('INFO', "Backup deleted: {$backup_file}", $_SESSION['user_id']);
+                        Logger::log('INFO', "Backup deleted: {$backup_file}", ['user_id' => $_SESSION['user_id'] ?? null]);
                         $_SESSION['success'] = "Backup '{$backup_file}' deleted successfully.";
                     } else {
                         $_SESSION['error'] = 'Failed to delete backup file.';

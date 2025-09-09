@@ -29,12 +29,15 @@ RewriteRule ^includes/ - [F,L]
 # Block PHP execution in uploads
 RewriteRule ^assets/uploads/.*\.php$ - [F,L]
 
-# Redirect .php to clean URLs (exclude API endpoints and auth handlers)
+# Redirect .php to clean URLs (exclude API endpoints, auth handlers, and export scripts)
 RewriteCond %{THE_REQUEST} \s/+(.+?)\.php[\s?] [NC]
 RewriteCond %{REQUEST_URI} !^/online_voting/api/ [NC]
 RewriteCond %{REQUEST_URI} !^/online_voting/auth/handler [NC]
 RewriteCond %{REQUEST_URI} !^/online_voting/auth/logout [NC]
-RewriteRule ^ /%1? [R=301,L]
+RewriteCond %{REQUEST_URI} !export-statistics\.php [NC]
+RewriteCond %{REQUEST_URI} !export-pdf\.php [NC]
+RewriteCond %{REQUEST_URI} !export\.php [NC]
+RewriteRule ^ /%1 [R=301,L,QSA]
 
 # Remove .php extension from URLs
 RewriteCond %{REQUEST_FILENAME} !-d

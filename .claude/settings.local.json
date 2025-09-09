@@ -56,7 +56,11 @@
       "Bash(git branch:*)",
       "Bash(git push:*)",
       "WebFetch(domain:github.com)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(git restore:*)",
+      "Bash(rm:*)",
+      "Bash(composer update:*)"
     ],
     "deny": [],
     "ask": []

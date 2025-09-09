@@ -1215,7 +1215,7 @@ include '../../includes/header.php';
 
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="<?= SITE_URL ?>/assets/js/chart.min.js"></script>
 <script>
 // Voting Timeline Chart
 <?php if (!empty($timeline_data)): ?>

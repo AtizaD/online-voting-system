@@ -40,7 +40,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'bulk_verify') {
             $student_ids = $_POST['student_ids'] ?? [];
             $verify_status = intval($_POST['verify_status'] ?? 0);
-            $notes = sanitize($_POST['notes'] ?? '');
             
             if (empty($student_ids)) {
                 throw new Exception('No students selected');
@@ -49,10 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $placeholders = str_repeat('?,', count($student_ids) - 1) . '?';
             $stmt = $db->prepare("
                 UPDATE students 
-                SET is_verified = ?, verified_by = ?, verified_at = NOW(), verification_notes = ?
+                SET is_verified = ?, verified_by = ?, verified_at = NOW()
                 WHERE student_id IN ($placeholders)
             ");
-            $params = array_merge([$verify_status, $current_user['id'], $notes], $student_ids);
+            $params = array_merge([$verify_status, $current_user['id']], $student_ids);
             $stmt->execute($params);
             
             $action_text = $verify_status ? 'verified' : 'unverified';
@@ -175,6 +174,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 try {
     $db = Database::getInstance()->getConnection();
     
+    // Get filter parameters
+    $search = isset($_GET['search']) ? sanitize($_GET['search']) : '';
+    $program_filter = isset($_GET['program_id']) ? (int)$_GET['program_id'] : 0;
+    $class_filter = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
+    $status_filter = isset($_GET['status']) ? $_GET['status'] : '';
+    $gender_filter = isset($_GET['gender']) ? $_GET['gender'] : '';
+    $per_page = isset($_GET['per_page']) ? max(10, min(100, (int)$_GET['per_page'])) : 25;
+    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+    $offset = ($page - 1) * $per_page;
+    
+    // Build WHERE conditions
+    $where_conditions = [];
+    $params = [];
+    
+    if (!empty($search)) {
+        $where_conditions[] = "(s.first_name LIKE ? OR s.last_name LIKE ? OR s.student_number LIKE ? OR CONCAT(s.first_name, ' ', s.last_name) LIKE ?)";
+        $search_term = "%{$search}%";
+        $params = array_merge($params, [$search_term, $search_term, $search_term, $search_term]);
+    }
+    
+    if ($program_filter > 0) {
+        $where_conditions[] = "s.program_id = ?";
+        $params[] = $program_filter;
+    }
+    
+    if ($class_filter > 0) {
+        $where_conditions[] = "s.class_id = ?";
+        $params[] = $class_filter;
+    }
+    
+    if (!empty($status_filter)) {
+        switch ($status_filter) {
+            case 'verified':
+                $where_conditions[] = "s.is_verified = 1";
+                break;
+            case 'unverified':
+                $where_conditions[] = "s.is_verified = 0";
+                break;
+            case 'active':
+                $where_conditions[] = "s.is_active = 1";
+                break;
+            case 'inactive':
+                $where_conditions[] = "s.is_active = 0";
+                break;
+        }
+    }
+    
+    if (!empty($gender_filter)) {
+        $where_conditions[] = "s.gender = ?";
+        $params[] = $gender_filter;
+    }
+    
+    $where_clause = !empty($where_conditions) ? "WHERE " . implode(" AND ", $where_conditions) : "";
+    
     // Get programs
     $stmt = $db->prepare("SELECT * FROM programs WHERE is_active = 1 ORDER BY program_name");
     $stmt->execute();
@@ -192,35 +245,70 @@ try {
     $stmt->execute();
     $classes = $stmt->fetchAll();
     
-    // Get all students
-    $stmt = $db->prepare("
+    // Count total filtered students
+    $count_sql = "
+        SELECT COUNT(DISTINCT s.student_id) as total
+        FROM students s
+        JOIN programs p ON s.program_id = p.program_id
+        JOIN classes c ON s.class_id = c.class_id
+        JOIN levels l ON c.level_id = l.level_id
+        $where_clause
+    ";
+    $stmt = $db->prepare($count_sql);
+    $stmt->execute($params);
+    $total_records = $stmt->fetch()['total'];
+    $total_pages = ceil($total_records / $per_page);
+    
+    // Get filtered and paginated students
+    $students_sql = "
         SELECT s.*, p.program_name, c.class_name, l.level_name,
-               COUNT(ca.candidate_id) as candidate_count
+               COUNT(ca.candidate_id) as candidate_count,
+               vu.first_name as verified_by_name, vu.last_name as verified_by_lastname
         FROM students s
         JOIN programs p ON s.program_id = p.program_id
         JOIN classes c ON s.class_id = c.class_id
         JOIN levels l ON c.level_id = l.level_id
         LEFT JOIN candidates ca ON s.student_id = ca.student_id
+        LEFT JOIN users vu ON s.verified_by = vu.user_id
+        $where_clause
         GROUP BY s.student_id, s.student_number, s.first_name, s.last_name, s.phone, s.program_id, s.class_id, 
                  s.gender, s.photo_url, s.is_verified, s.verified_by, s.verified_at, s.is_active, s.created_at, 
-                 s.updated_at, s.created_by, p.program_name, c.class_name, l.level_name
+                 s.updated_at, s.created_by, p.program_name, c.class_name, l.level_name, vu.first_name, vu.last_name
         ORDER BY s.created_at DESC
-    ");
-    $stmt->execute();
+        LIMIT ? OFFSET ?
+    ";
+    $students_params = array_merge($params, [$per_page, $offset]);
+    $stmt = $db->prepare($students_sql);
+    $stmt->execute($students_params);
     $students = $stmt->fetchAll();
     
-    // Get student statistics
-    $stmt = $db->prepare("
+    // Get student statistics (overall and filtered)
+    $overall_stats_sql = "
         SELECT 
             COUNT(*) as total_students,
-            COUNT(CASE WHEN is_verified = 1 THEN 1 END) as verified_students,
-            COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_students,
-            COUNT(CASE WHEN is_verified = 0 THEN 1 END) as unverified_students,
-            COUNT(CASE WHEN is_active = 0 THEN 1 END) as inactive_students
-        FROM students
+            COUNT(CASE WHEN s.is_verified = 1 THEN 1 END) as verified_students,
+            COUNT(CASE WHEN s.is_active = 1 THEN 1 END) as active_students,
+            COUNT(CASE WHEN s.is_verified = 0 THEN 1 END) as unverified_students,
+            COUNT(CASE WHEN s.is_active = 0 THEN 1 END) as inactive_students
+        FROM students s
+        JOIN programs p ON s.program_id = p.program_id
+        JOIN classes c ON s.class_id = c.class_id
+        $where_clause
+    ";
+    $stmt = $db->prepare($overall_stats_sql);
+    $stmt->execute($params);
+    $stats = $stmt->fetch();
+    
+    // Get overall stats without filters for comparison
+    $stmt = $db->prepare("
+        SELECT 
+            COUNT(*) as total_all,
+            COUNT(CASE WHEN s.is_verified = 1 THEN 1 END) as verified_all,
+            COUNT(CASE WHEN s.is_active = 1 THEN 1 END) as active_all
+        FROM students s
     ");
     $stmt->execute();
-    $stats = $stmt->fetch();
+    $overall_stats = $stmt->fetch();
     
 } catch (Exception $e) {
     logError("Bulk actions data fetch error: " . $e->getMessage());
@@ -275,8 +363,11 @@ include '../../includes/header.php';
                 <i class="fas fa-users"></i>
             </div>
             <div class="stats-info">
-                <h3><?= $stats['total_students'] ?></h3>
-                <p>Total Students</p>
+                <h3><?= number_format($stats['total_students']) ?></h3>
+                <p>Filtered Students</p>
+                <?php if ($search || $program_filter || $class_filter || $status_filter || $gender_filter): ?>
+                    <small class="text-muted">of <?= number_format($overall_stats['total_all']) ?> total</small>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -355,9 +446,6 @@ include '../../includes/header.php';
                             <option value="1">Verify Students</option>
                             <option value="0">Unverify Students</option>
                         </select>
-                    </div>
-                    <div class="mb-3">
-                        <input type="text" class="form-control form-control-sm" name="notes" placeholder="Notes (optional)">
                     </div>
                     <button type="submit" class="btn btn-success btn-sm w-100" disabled id="verifyBtn">
                         <i class="fas fa-check me-1"></i>Apply (<span class="selected-count">0</span>)
@@ -450,31 +538,105 @@ include '../../includes/header.php';
 <!-- Students List -->
 <div class="card">
     <div class="card-header">
-        <div class="d-flex justify-content-between align-items-center">
+        <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="card-title mb-0">
                 <i class="fas fa-list me-2"></i>Select Students
+                <?php if ($search || $program_filter || $class_filter || $status_filter || $gender_filter): ?>
+                    <span class="badge bg-info ms-2">
+                        <?= number_format($total_records) ?> filtered
+                    </span>
+                <?php else: ?>
+                    <span class="badge bg-secondary ms-2">
+                        <?= number_format($total_records) ?> total
+                    </span>
+                <?php endif; ?>
             </h5>
-            <div class="d-flex gap-2">
-                <select class="form-select form-select-sm" id="programFilter" style="width: auto;">
-                    <option value="">All Programs</option>
-                    <?php foreach ($programs as $program): ?>
-                        <option value="<?= $program['program_id'] ?>"><?= sanitize($program['program_name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <select class="form-select form-select-sm" id="statusFilter" style="width: auto;">
-                    <option value="">All Status</option>
-                    <option value="verified">Verified</option>
-                    <option value="unverified">Unverified</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                </select>
-                <button class="btn btn-outline-secondary btn-sm" onclick="selectAll()">
-                    <i class="fas fa-check-square me-1"></i>Select All
+            <div class="d-flex gap-2 align-items-center">
+                <div class="d-flex align-items-center me-3">
+                    <small class="text-muted me-2">Per page:</small>
+                    <select class="form-select form-select-sm" style="width: auto;" onchange="changePerPage(this.value)">
+                        <option value="10" <?= $per_page == 10 ? 'selected' : '' ?>>10</option>
+                        <option value="25" <?= $per_page == 25 ? 'selected' : '' ?>>25</option>
+                        <option value="50" <?= $per_page == 50 ? 'selected' : '' ?>>50</option>
+                        <option value="100" <?= $per_page == 100 ? 'selected' : '' ?>>100</option>
+                    </select>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" onclick="selectAllVisible()">
+                    <i class="fas fa-check-square me-1"></i>Select Page
                 </button>
                 <button class="btn btn-outline-secondary btn-sm" onclick="selectNone()">
-                    <i class="fas fa-square me-1"></i>Select None
+                    <i class="fas fa-square me-1"></i>Clear All
                 </button>
             </div>
+        </div>
+        
+        <!-- Search and Filter Controls -->
+        <div class="border-top pt-3">
+            <form method="GET" class="row g-2">
+                <div class="col-md-3">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" name="search" value="<?= htmlspecialchars($search) ?>" 
+                               placeholder="Search by name or student number...">
+                    </div>
+                </div>
+                
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" name="program_id" onchange="loadFilterClasses(this.value)">
+                        <option value="">All Programs</option>
+                        <?php foreach ($programs as $program): ?>
+                            <option value="<?= $program['program_id'] ?>" 
+                                    <?= $program_filter == $program['program_id'] ? 'selected' : '' ?>>
+                                <?= sanitize($program['program_name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" name="class_id" id="filter_class_id">
+                        <option value="">All Classes</option>
+                        <?php foreach ($classes as $class): ?>
+                            <?php if (!$program_filter || $class['program_id'] == $program_filter): ?>
+                                <option value="<?= $class['class_id'] ?>" 
+                                        data-program="<?= $class['program_id'] ?>"
+                                        <?= $class_filter == $class['class_id'] ? 'selected' : '' ?>>
+                                    <?= sanitize($class['level_name'] . ' - ' . $class['class_name']) ?>
+                                </option>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" name="status">
+                        <option value="">All Status</option>
+                        <option value="verified" <?= $status_filter === 'verified' ? 'selected' : '' ?>>Verified</option>
+                        <option value="unverified" <?= $status_filter === 'unverified' ? 'selected' : '' ?>>Unverified</option>
+                        <option value="active" <?= $status_filter === 'active' ? 'selected' : '' ?>>Active</option>
+                        <option value="inactive" <?= $status_filter === 'inactive' ? 'selected' : '' ?>>Inactive</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-1">
+                    <select class="form-select form-select-sm" name="gender">
+                        <option value="">Gender</option>
+                        <option value="Male" <?= $gender_filter === 'Male' ? 'selected' : '' ?>>Male</option>
+                        <option value="Female" <?= $gender_filter === 'Female' ? 'selected' : '' ?>>Female</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <div class="btn-group w-100">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fas fa-filter me-1"></i>Filter
+                        </button>
+                        <a href="bulk-actions" class="btn btn-outline-secondary btn-sm" title="Reset">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    </div>
+                </div>
+            </form>
         </div>
     </div>
     <div class="card-body">
@@ -498,6 +660,7 @@ include '../../includes/header.php';
                             <th>Student</th>
                             <th>Program & Class</th>
                             <th>Status</th>
+                            <th>Verification</th>
                             <th>Candidate</th>
                             <th>Actions</th>
                         </tr>
@@ -531,14 +694,23 @@ include '../../includes/header.php';
                                     </div>
                                 </td>
                                 <td>
+                                    <span class="badge bg-<?= $student['is_active'] ? 'info' : 'secondary' ?> badge-sm">
+                                        <?= $student['is_active'] ? 'Active' : 'Inactive' ?>
+                                    </span>
+                                </td>
+                                <td>
                                     <div>
                                         <span class="badge bg-<?= $student['is_verified'] ? 'success' : 'warning' ?> badge-sm">
                                             <?= $student['is_verified'] ? 'Verified' : 'Unverified' ?>
                                         </span>
-                                        <br>
-                                        <span class="badge bg-<?= $student['is_active'] ? 'info' : 'secondary' ?> badge-sm">
-                                            <?= $student['is_active'] ? 'Active' : 'Inactive' ?>
-                                        </span>
+                                        <?php if ($student['is_verified'] && $student['verified_by_name']): ?>
+                                            <br><small class="text-muted">
+                                                by <?= sanitize($student['verified_by_name'] . ' ' . $student['verified_by_lastname']) ?>
+                                                <?php if ($student['verified_at']): ?>
+                                                    <br><?= date('M j, Y', strtotime($student['verified_at'])) ?>
+                                                <?php endif; ?>
+                                            </small>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                                 <td class="text-center">
@@ -563,9 +735,105 @@ include '../../includes/header.php';
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Pagination -->
+            <?php if ($total_pages > 1): ?>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div class="pagination-info">
+                        <small class="text-muted">
+                            Showing <?= number_format(($page - 1) * $per_page + 1) ?> to 
+                            <?= number_format(min($page * $per_page, $total_records)) ?> of 
+                            <?= number_format($total_records) ?> entries
+                        </small>
+                    </div>
+                    
+                    <nav aria-label="Students pagination">
+                        <ul class="pagination pagination-sm mb-0">
+                            <!-- First Page -->
+                            <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                                <a class="page-link" href="<?= buildPaginationUrl(1) ?>">
+                                    <i class="fas fa-angle-double-left"></i>
+                                </a>
+                            </li>
+                            
+                            <!-- Previous Page -->
+                            <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                                <a class="page-link" href="<?= buildPaginationUrl($page - 1) ?>">
+                                    <i class="fas fa-angle-left"></i>
+                                </a>
+                            </li>
+                            
+                            <!-- Page Numbers -->
+                            <?php
+                            $start_page = max(1, $page - 2);
+                            $end_page = min($total_pages, $page + 2);
+                            
+                            if ($start_page > 1): ?>
+                                <li class="page-item">
+                                    <a class="page-link" href="<?= buildPaginationUrl(1) ?>">1</a>
+                                </li>
+                                <?php if ($start_page > 2): ?>
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                            
+                            <?php for ($i = $start_page; $i <= $end_page; $i++): ?>
+                                <li class="page-item <?= $i == $page ? 'active' : '' ?>">
+                                    <a class="page-link" href="<?= buildPaginationUrl($i) ?>"><?= $i ?></a>
+                                </li>
+                            <?php endfor; ?>
+                            
+                            <?php if ($end_page < $total_pages): ?>
+                                <?php if ($end_page < $total_pages - 1): ?>
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                <?php endif; ?>
+                                <li class="page-item">
+                                    <a class="page-link" href="<?= buildPaginationUrl($total_pages) ?>"><?= $total_pages ?></a>
+                                </li>
+                            <?php endif; ?>
+                            
+                            <!-- Next Page -->
+                            <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                                <a class="page-link" href="<?= buildPaginationUrl($page + 1) ?>">
+                                    <i class="fas fa-angle-right"></i>
+                                </a>
+                            </li>
+                            
+                            <!-- Last Page -->
+                            <li class="page-item <?= $page >= $total_pages ? 'disabled' : '' ?>">
+                                <a class="page-link" href="<?= buildPaginationUrl($total_pages) ?>">
+                                    <i class="fas fa-angle-double-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
+
+<?php
+// Helper function to build pagination URLs
+function buildPaginationUrl($page_num) {
+    global $search, $program_filter, $class_filter, $status_filter, $gender_filter, $per_page;
+    
+    $params = ['page' => $page_num];
+    
+    if (!empty($search)) $params['search'] = $search;
+    if ($program_filter) $params['program_id'] = $program_filter;
+    if ($class_filter) $params['class_id'] = $class_filter;
+    if (!empty($status_filter)) $params['status'] = $status_filter;
+    if (!empty($gender_filter)) $params['gender'] = $gender_filter;
+    if ($per_page !== 25) $params['per_page'] = $per_page;
+    
+    return 'bulk-actions?' . http_build_query($params);
+}
+?>
 
 <style>
 /* Bulk Actions Styles */
@@ -662,6 +930,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // Classes data for dynamic loading
     const classesData = <?= json_encode($classes) ?>;
     
+    // Load classes for filter
+    window.loadFilterClasses = function(programId) {
+        const classSelect = document.getElementById('filter_class_id');
+        const currentClassId = '<?= $class_filter ?>';
+        
+        // Show all classes initially
+        Array.from(classSelect.options).forEach(option => {
+            if (option.value === '') return; // Keep "All Classes" option
+            
+            const optionProgramId = option.dataset.program;
+            if (!programId || optionProgramId == programId) {
+                option.style.display = '';
+            } else {
+                option.style.display = 'none';
+                if (option.selected) option.selected = false;
+            }
+        });
+        
+        // If current class is not in selected program, reset to "All Classes"
+        if (programId && currentClassId) {
+            const currentOption = classSelect.querySelector(`option[value="${currentClassId}"]`);
+            if (currentOption && currentOption.dataset.program != programId) {
+                classSelect.value = '';
+            }
+        }
+    };
+    
     // Load classes for bulk program assignment
     window.loadBulkClasses = function(programId) {
         const classSelect = document.getElementById('bulk_class_id');
@@ -689,13 +984,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
     
+    // Per page change function
+    window.changePerPage = function(newPerPage) {
+        const url = new URL(window.location);
+        url.searchParams.set('per_page', newPerPage);
+        url.searchParams.set('page', '1'); // Reset to first page
+        window.location.href = url.toString();
+    };
+    
     // Selection functions
-    window.selectAll = function() {
+    window.selectAllVisible = function() {
         const checkboxes = document.querySelectorAll('.student-checkbox');
         checkboxes.forEach(checkbox => {
-            if (checkbox.closest('tr').style.display !== 'none') {
-                checkbox.checked = true;
-            }
+            checkbox.checked = true;
         });
         updateBulkActions();
     };
@@ -755,47 +1056,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
     
-    // Filter functionality
-    const programFilter = document.getElementById('programFilter');
-    const statusFilter = document.getElementById('statusFilter');
-    const table = document.getElementById('studentsTable');
-    
-    function filterTable() {
-        if (!table) return;
-        
-        const selectedProgram = programFilter.value;
-        const selectedStatus = statusFilter.value;
-        const rows = table.querySelectorAll('tbody tr');
-        
-        rows.forEach(row => {
-            const programId = row.dataset.programId;
-            const verified = row.dataset.verified === '1';
-            const active = row.dataset.active === '1';
-            
-            const programMatch = !selectedProgram || programId === selectedProgram;
-            
-            let statusMatch = true;
-            if (selectedStatus === 'verified') statusMatch = verified;
-            else if (selectedStatus === 'unverified') statusMatch = !verified;
-            else if (selectedStatus === 'active') statusMatch = active;
-            else if (selectedStatus === 'inactive') statusMatch = !active;
-            
-            if (programMatch && statusMatch) {
-                row.style.display = '';
-            } else {
-                row.style.display = 'none';
-                // Uncheck hidden rows
-                const checkbox = row.querySelector('.student-checkbox');
-                if (checkbox) checkbox.checked = false;
-            }
-        });
-        
-        updateBulkActions();
-    }
-    
-    if (programFilter && statusFilter) {
-        programFilter.addEventListener('change', filterTable);
-        statusFilter.addEventListener('change', filterTable);
+    // Initialize filter on page load
+    const currentProgramFilter = '<?= $program_filter ?>';
+    if (currentProgramFilter) {
+        loadFilterClasses(currentProgramFilter);
     }
     
     // Auto-dismiss alerts
