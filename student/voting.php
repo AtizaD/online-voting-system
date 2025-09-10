@@ -165,14 +165,14 @@ if (!isset($_SESSION['csrf_token'])) {
             background: linear-gradient(135deg, #f8fafc, #e2e8f0);
             border-radius: 8px;
             padding: 1rem;
-            margin-bottom: 1rem;
+            margin-bottom: 1.5rem;
             text-align: center;
         }
         
         .candidates-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem;
             margin-bottom: 2rem;
             flex-grow: 1;
         }
@@ -202,8 +202,8 @@ if (!isset($_SESSION['csrf_token'])) {
         .candidate-card {
             background: white;
             border: 3px solid #e5e7eb;
-            border-radius: 16px;
-            padding: 2rem;
+            border-radius: 12px;
+            padding: 1.25rem;
             text-align: center;
             transition: all 0.3s ease;
             cursor: pointer;
@@ -216,12 +216,17 @@ if (!isset($_SESSION['csrf_token'])) {
         
         .candidate-card:hover {
             border-color: var(--primary-color);
-            transform: translateY(-8px);
-            box-shadow: 0 12px 30px rgba(79, 70, 229, 0.2);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.15);
         }
         
         /* Touch-friendly candidate cards */
         @media (max-width: 768px) {
+            .candidate-card {
+                padding: 1rem;
+                border-radius: 10px;
+            }
+            
             .candidate-card:hover {
                 transform: none; /* Disable hover animations on mobile */
             }
@@ -234,20 +239,22 @@ if (!isset($_SESSION['csrf_token'])) {
             .candidate-photo {
                 width: 100px;
                 height: 100px;
+                margin-bottom: 1rem;
             }
             
             .candidate-name {
-                font-size: 1.2rem;
+                font-size: 1.1rem;
+                margin-bottom: 0.75rem;
             }
             
             .candidate-details {
-                font-size: 0.9rem;
+                font-size: 0.85rem;
             }
             
             .vote-checkbox {
-                transform: scale(2.5); /* Larger checkboxes for touch */
-                top: 0.75rem;
-                right: 0.75rem;
+                transform: scale(2.2); /* Larger checkboxes for touch */
+                top: 0.5rem;
+                right: 0.5rem;
             }
         }
         
@@ -261,12 +268,8 @@ if (!isset($_SESSION['csrf_token'])) {
             height: 120px;
             object-fit: cover;
             border-radius: 50%;
-            border: 4px solid #e5e7eb;
-            margin-bottom: 1.5rem;
-        }
-        
-        .candidate-card.selected .candidate-photo {
-            border-color: var(--success-color);
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
         
         .candidate-info {
@@ -274,36 +277,38 @@ if (!isset($_SESSION['csrf_token'])) {
             display: flex;
             flex-direction: column;
             justify-content: center;
+            align-items: center;
         }
         
         .candidate-name {
-            font-size: 1.4rem;
+            font-size: 1.25rem;
             font-weight: 700;
             color: #1f2937;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             line-height: 1.2;
         }
         
         .candidate-details {
             color: #6b7280;
-            font-size: 0.95rem;
-            line-height: 1.4;
+            font-size: 0.9rem;
+            line-height: 1.3;
         }
         
         .candidate-detail-item {
             background: #f8fafc;
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            margin-bottom: 0.3rem;
+            padding: 0.3rem 0.6rem;
+            border-radius: 5px;
+            margin-bottom: 0.25rem;
             display: inline-block;
             font-weight: 500;
+            font-size: 0.85rem;
         }
         
         .vote-checkbox {
             position: absolute;
-            top: 1rem;
-            right: 1rem;
-            transform: scale(2);
+            top: 0.75rem;
+            right: 0.75rem;
+            transform: scale(1.8);
             accent-color: var(--success-color);
         }
         
@@ -384,6 +389,19 @@ if (!isset($_SESSION['csrf_token'])) {
         .btn-next:hover, .btn-review:hover {
             background: #3730a3;
             color: white;
+        }
+        
+        .btn-review:disabled {
+            background: #9ca3af;
+            border-color: #9ca3af;
+            color: #6b7280;
+            cursor: not-allowed;
+        }
+        
+        .btn-review:disabled:hover {
+            background: #9ca3af;
+            color: #6b7280;
+            transform: none;
         }
         
         .confirmation-screen {
@@ -578,7 +596,7 @@ if (!isset($_SESSION['csrf_token'])) {
     </div>
 
     <!-- Voting Interface -->
-    <div class="container my-5">
+    <div class="container my-3">
         <form id="votingForm" method="POST" action="../api/votes/submit.php">
             <input type="hidden" name="election_id" value="<?= $election_id ?>">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
@@ -593,14 +611,12 @@ if (!isset($_SESSION['csrf_token'])) {
                                 <h1 class="mb-2 fw-bold text-primary">
                                     <?= htmlspecialchars($position['position_title']) ?>
                                 </h1>
+                                <?php if ($position['max_votes'] > 1): ?>
                                 <div class="alert alert-info d-inline-block mb-0">
                                     <i class="fas fa-info-circle me-2"></i>
-                                    <?php if ($position['max_votes'] == 1): ?>
-                                        Select one candidate
-                                    <?php else: ?>
-                                        Select up to <?= $position['max_votes'] ?> candidates
-                                    <?php endif; ?>
+                                    Select up to <?= $position['max_votes'] ?> candidates
                                 </div>
+                                <?php endif; ?>
                             </div>
                             
                             <!-- Candidates Grid -->
@@ -682,7 +698,7 @@ if (!isset($_SESSION['csrf_token'])) {
                                                 Next<i class="fas fa-arrow-right ms-2"></i>
                                             </button>
                                         <?php else: ?>
-                                            <button type="button" class="btn btn-review btn-nav" onclick="showConfirmation()">
+                                            <button type="button" class="btn btn-review btn-nav" id="reviewSubmitBtn" onclick="showConfirmation()" disabled>
                                                 Review & Submit<i class="fas fa-check ms-2"></i>
                                             </button>
                                         <?php endif; ?>
@@ -810,8 +826,34 @@ if (!isset($_SESSION['csrf_token'])) {
                 });
                 
                 sessionStorage.setItem(storageKey, JSON.stringify(selections));
+                
+                // Update button states after saving selections
+                updateButtonStates();
             } catch (error) {
                 console.error('Error saving selections:', error);
+            }
+        }
+        
+        // Check if current position has at least one selection and update button states
+        function updateButtonStates() {
+            // Only check if we're on the last position (where review button exists)
+            if (currentPosition === totalPositions - 1) {
+                const reviewBtn = document.getElementById('reviewSubmitBtn');
+                if (reviewBtn) {
+                    const currentPositionData = positionData[currentPosition];
+                    const currentPositionId = currentPositionData.position_id;
+                    
+                    // Check if current position has any selections
+                    const currentPositionSelections = document.querySelectorAll(`input[data-position="${currentPositionId}"]:checked`);
+                    
+                    if (currentPositionSelections.length > 0) {
+                        reviewBtn.disabled = false;
+                        reviewBtn.classList.remove('disabled');
+                    } else {
+                        reviewBtn.disabled = true;
+                        reviewBtn.classList.add('disabled');
+                    }
+                }
             }
         }
         
@@ -864,6 +906,9 @@ if (!isset($_SESSION['csrf_token'])) {
                 // Save current position
                 saveCurrentPosition();
                 
+                // Update button states (important for last position)
+                updateButtonStates();
+                
                 // Scroll to top
                 window.scrollTo(0, 0);
             }
@@ -880,6 +925,9 @@ if (!isset($_SESSION['csrf_token'])) {
                 
                 // Save current position
                 saveCurrentPosition();
+                
+                // Update button states
+                updateButtonStates();
                 
                 // Scroll to top
                 window.scrollTo(0, 0);
@@ -1030,6 +1078,9 @@ if (!isset($_SESSION['csrf_token'])) {
                 page.style.display = index === currentPosition ? 'block' : 'none';
             });
             
+            // Update button states when returning to voting
+            updateButtonStates();
+            
             // Scroll to top
             window.scrollTo(0, 0);
         }
@@ -1066,33 +1117,278 @@ if (!isset($_SESSION['csrf_token'])) {
                     
                     // Show success message with countdown
                     document.body.innerHTML = `
-                        <div class="container mt-5 pt-5">
-                            <div class="row justify-content-center">
-                                <div class="col-md-8 text-center">
-                                    <div class="card border-success shadow-lg">
-                                        <div class="card-body p-5">
-                                            <i class="fas fa-check-circle fa-6x text-success mb-4"></i>
-                                            <h1 class="text-success mb-3">Vote Submitted Successfully!</h1>
-                                            <p class="lead mb-4">
-                                                Thank you for participating in <strong><?= htmlspecialchars($election['title']) ?></strong>. 
-                                                Your vote has been recorded securely and anonymously.
-                                            </p>
-                                            <div class="alert alert-info mb-4">
-                                                <i class="fas fa-info-circle me-2"></i>
-                                                You selected candidates for <strong>${selectedCandidates}</strong> position(s).
-                                            </div>
-                                            <div class="alert alert-warning mb-4">
-                                                <i class="fas fa-sign-out-alt me-2"></i>
-                                                For security, you will be automatically logged out in <span id="countdown" class="fw-bold">5</span> seconds.
-                                            </div>
-                                            <button class="btn btn-primary btn-lg px-5 me-3" onclick="logoutNow()">
-                                                <i class="fas fa-sign-out-alt me-2"></i>Logout Now
-                                            </button>
-                                            <button class="btn btn-outline-secondary btn-lg px-5" onclick="cancelLogout()">
-                                                <i class="fas fa-home me-2"></i>Return to Dashboard
-                                            </button>
-                                        </div>
-                                    </div>
+                        <style>
+                            @keyframes successBounce {
+                                0% { transform: scale(0.3) rotate(-45deg); opacity: 0; }
+                                50% { transform: scale(1.1) rotate(-5deg); opacity: 1; }
+                                100% { transform: scale(1) rotate(0deg); opacity: 1; }
+                            }
+                            
+                            @keyframes fadeInUp {
+                                0% { transform: translateY(30px); opacity: 0; }
+                                100% { transform: translateY(0); opacity: 1; }
+                            }
+                            
+                            @keyframes pulse {
+                                0% { transform: scale(1); }
+                                50% { transform: scale(1.05); }
+                                100% { transform: scale(1); }
+                            }
+                            
+                            @keyframes confetti {
+                                0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+                                100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+                            }
+                            
+                            .success-container {
+                                min-height: 100vh;
+                                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                padding: 2rem;
+                                position: relative;
+                                overflow: hidden;
+                            }
+                            
+                            .success-card {
+                                background: white;
+                                border-radius: 20px;
+                                box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+                                padding: 3rem;
+                                text-align: center;
+                                max-width: 600px;
+                                width: 100%;
+                                position: relative;
+                                animation: fadeInUp 0.8s ease-out;
+                            }
+                            
+                            .success-icon {
+                                color: #10b981;
+                                animation: successBounce 0.8s ease-out;
+                                margin-bottom: 2rem;
+                                filter: drop-shadow(0 8px 16px rgba(16, 185, 129, 0.3));
+                            }
+                            
+                            .success-title {
+                                color: #1f2937;
+                                font-weight: 800;
+                                margin-bottom: 1rem;
+                                animation: fadeInUp 0.8s ease-out 0.2s both;
+                            }
+                            
+                            .success-subtitle {
+                                color: #6b7280;
+                                font-size: 1.2rem;
+                                margin-bottom: 2rem;
+                                animation: fadeInUp 0.8s ease-out 0.4s both;
+                            }
+                            
+                            .election-badge {
+                                background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+                                color: white;
+                                padding: 0.75rem 1.5rem;
+                                border-radius: 50px;
+                                font-weight: 600;
+                                display: inline-block;
+                                margin-bottom: 2rem;
+                                animation: fadeInUp 0.8s ease-out 0.6s both;
+                                box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+                            }
+                            
+                            .vote-summary {
+                                background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+                                border: 2px solid #10b981;
+                                border-radius: 15px;
+                                padding: 1.5rem;
+                                margin-bottom: 2rem;
+                                animation: fadeInUp 0.8s ease-out 0.8s both;
+                            }
+                            
+                            .security-notice {
+                                background: linear-gradient(135deg, #fef3c7, #fed7aa);
+                                border: 2px solid #f59e0b;
+                                border-radius: 15px;
+                                padding: 1.5rem;
+                                margin-bottom: 2rem;
+                                animation: fadeInUp 0.8s ease-out 1s both;
+                            }
+                            
+                            .countdown-display {
+                                font-size: 2rem;
+                                font-weight: 800;
+                                color: #dc2626;
+                                animation: pulse 1s infinite;
+                                text-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
+                            }
+                            
+                            .action-buttons {
+                                display: flex;
+                                gap: 1rem;
+                                justify-content: center;
+                                flex-wrap: wrap;
+                                animation: fadeInUp 0.8s ease-out 1.2s both;
+                            }
+                            
+                            .success-btn {
+                                padding: 1rem 2rem;
+                                border-radius: 12px;
+                                font-weight: 600;
+                                text-decoration: none;
+                                transition: all 0.3s ease;
+                                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                                border: none;
+                                cursor: pointer;
+                                min-width: 160px;
+                            }
+                            
+                            .btn-logout {
+                                background: linear-gradient(135deg, #dc2626, #b91c1c);
+                                color: white;
+                            }
+                            
+                            .btn-logout:hover {
+                                background: linear-gradient(135deg, #b91c1c, #991b1b);
+                                transform: translateY(-2px);
+                                box-shadow: 0 8px 25px rgba(220, 38, 38, 0.3);
+                                color: white;
+                            }
+                            
+                            .btn-dashboard {
+                                background: linear-gradient(135deg, #6b7280, #4b5563);
+                                color: white;
+                            }
+                            
+                            .btn-dashboard:hover {
+                                background: linear-gradient(135deg, #4b5563, #374151);
+                                transform: translateY(-2px);
+                                box-shadow: 0 8px 25px rgba(75, 85, 99, 0.3);
+                                color: white;
+                            }
+                            
+                            .confetti-piece {
+                                position: absolute;
+                                width: 10px;
+                                height: 10px;
+                                background: #f59e0b;
+                                animation: confetti 3s linear infinite;
+                            }
+                            
+                            .confetti-piece:nth-child(1) { left: 10%; animation-delay: 0s; background: #ef4444; }
+                            .confetti-piece:nth-child(2) { left: 20%; animation-delay: 0.5s; background: #3b82f6; }
+                            .confetti-piece:nth-child(3) { left: 30%; animation-delay: 1s; background: #10b981; }
+                            .confetti-piece:nth-child(4) { left: 40%; animation-delay: 1.5s; background: #f59e0b; }
+                            .confetti-piece:nth-child(5) { left: 50%; animation-delay: 2s; background: #8b5cf6; }
+                            .confetti-piece:nth-child(6) { left: 60%; animation-delay: 0.3s; background: #ef4444; }
+                            .confetti-piece:nth-child(7) { left: 70%; animation-delay: 0.8s; background: #3b82f6; }
+                            .confetti-piece:nth-child(8) { left: 80%; animation-delay: 1.3s; background: #10b981; }
+                            .confetti-piece:nth-child(9) { left: 90%; animation-delay: 1.8s; background: #f59e0b; }
+                            
+                            @media (max-width: 768px) {
+                                .success-container {
+                                    padding: 1rem;
+                                }
+                                
+                                .success-card {
+                                    padding: 2rem 1.5rem;
+                                    border-radius: 15px;
+                                }
+                                
+                                .success-icon {
+                                    font-size: 4rem !important;
+                                    margin-bottom: 1.5rem;
+                                }
+                                
+                                .success-title {
+                                    font-size: 1.8rem !important;
+                                }
+                                
+                                .success-subtitle {
+                                    font-size: 1rem;
+                                }
+                                
+                                .election-badge {
+                                    padding: 0.5rem 1rem;
+                                    font-size: 0.9rem;
+                                }
+                                
+                                .vote-summary, .security-notice {
+                                    padding: 1rem;
+                                    margin-bottom: 1.5rem;
+                                }
+                                
+                                .countdown-display {
+                                    font-size: 1.5rem;
+                                }
+                                
+                                .action-buttons {
+                                    flex-direction: column;
+                                    align-items: center;
+                                }
+                                
+                                .success-btn {
+                                    width: 100%;
+                                    max-width: 250px;
+                                    padding: 0.8rem 1.5rem;
+                                }
+                            }
+                        </style>
+                        
+                        <div class="success-container">
+                            <!-- Confetti Animation -->
+                            <div class="confetti-piece"></div>
+                            <div class="confetti-piece"></div>
+                            <div class="confetti-piece"></div>
+                            <div class="confetti-piece"></div>
+                            <div class="confetti-piece"></div>
+                            <div class="confetti-piece"></div>
+                            <div class="confetti-piece"></div>
+                            <div class="confetti-piece"></div>
+                            <div class="confetti-piece"></div>
+                            
+                            <div class="success-card">
+                                <i class="fas fa-check-circle success-icon" style="font-size: 5rem;"></i>
+                                
+                                <h1 class="success-title" style="font-size: 2.5rem;">
+                                    🎉 Vote Submitted!
+                                </h1>
+                                
+                                <p class="success-subtitle">
+                                    Thank you for participating
+                                </p>
+                                
+                                <div class="election-badge">
+                                    <i class="fas fa-vote-yea me-2"></i>
+                                    <?= htmlspecialchars($election['title']) ?>
+                                </div>
+                                
+                                <div class="vote-summary">
+                                    <p style="margin-bottom: 0.5rem; color: #047857; font-size: 1.1rem;">
+                                        <i class="fas fa-check me-2"></i>
+                                        <strong>${selectedCandidates}</strong> position(s) voted
+                                    </p>
+                                    <p style="margin-bottom: 0; color: #047857;">
+                                        <i class="fas fa-shield-alt me-2"></i>
+                                        Vote recorded securely
+                                    </p>
+                                </div>
+                                
+                                <div class="security-notice">
+                                    <p style="margin-bottom: 1rem; color: #b45309;">
+                                        <i class="fas fa-sign-out-alt me-2"></i>
+                                        Auto logout in <span class="countdown-display" id="countdown" style="display: inline;">5</span> seconds
+                                    </p>
+                                </div>
+                                
+                                <div class="action-buttons">
+                                    <button class="success-btn btn-logout" onclick="logoutNow()">
+                                        <i class="fas fa-sign-out-alt me-2"></i>
+                                        Logout Now
+                                    </button>
+                                    <button class="success-btn btn-dashboard" onclick="cancelLogout()">
+                                        <i class="fas fa-home me-2"></i>
+                                        Dashboard
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1130,6 +1426,8 @@ if (!isset($_SESSION['csrf_token'])) {
         // Initialize selections when page loads
         document.addEventListener('DOMContentLoaded', function() {
             loadSelections();
+            // Update button states after loading selections
+            updateButtonStates();
         });
         
         // Logout functions
